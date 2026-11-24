@@ -291,3 +291,91 @@ class CapsuleLegRig:
         canvas.paste(foot_r, (int(round(pos_x + dax)) + fx, int(round(pos_y + day)) + fy), foot_r)
         canvas.paste(calf_r, (int(round(pos_x + dkx)) + cx, int(round(pos_y + dky)) + cy), calf_r)
         canvas.paste(thigh_r, (pos_x + tx, pos_y + ty), thigh_r)
+
+
+def render_leg_vector(
+    size: Tuple[int, int],
+    hip: Tuple[float, float],
+    knee: Tuple[float, float],
+    ankle: Tuple[float, float],
+    thigh_ang: float,
+    knee_rel_ang: float,
+    foot_world_ang: float,
+    is_far: bool = False,
+) -> Image.Image:
+    """Option 3: Unified-outline procedural cartoon leg (skin fill + single outer stroke, 0% seams)."""
+    w, h = size
+    scale = 2
+    sw, sh = w * scale, h * scale
+    canvas = Image.new("RGBA", (sw, sh), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+
+    # Forward kinematics points
+    new_knee = rotate_point_pil(knee, hip, thigh_ang)
+    calf_ang = thigh_ang + knee_rel_ang
+    dkx, dky = new_knee[0] - knee[0], new_knee[1] - knee[1]
+    rot_ankle = rotate_point_pil(ankle, knee, calf_ang)
+    new_ankle = (rot_ankle[0] + dkx, rot_ankle[1] + dky)
+
+    # Foot heel & toe offsets relative to ankle
+    heel_rel = (-14.0, 14.0)
+    toe_rel = (38.0, 16.0)
+    instep_rel = (16.0, 4.0)
+    new_heel = rotate_point_pil((new_ankle[0] + heel_rel[0], new_ankle[1] + heel_rel[1]), new_ankle, foot_world_ang)
+    new_toe = rotate_point_pil((new_ankle[0] + toe_rel[0], new_ankle[1] + toe_rel[1]), new_ankle, foot_world_ang)
+    new_instep = rotate_point_pil((new_ankle[0] + instep_rel[0], new_ankle[1] + instep_rel[1]), new_ankle, foot_world_ang)
+
+    def sc(pt: Tuple[float, float]) -> Tuple[float, float]:
+        return (pt[0] * scale, pt[1] * scale)
+
+    p_hip = sc(hip)
+    p_knee = sc(new_knee)
+    p_ankle = sc(new_ankle)
+    p_heel = sc(new_heel)
+    p_toe = sc(new_toe)
+    p_instep = sc(new_instep)
+
+    r_hip = 17.0 * scale
+    r_knee = 12.2 * scale
+    r_ankle = 9.2 * scale
+    r_heel = 8.5 * scale
+    r_toe = 6.2 * scale
+    stroke = 2.6 * scale
+
+    fill_rgb = (194, 144, 105, 255) if is_far else (228, 170, 124, 255)
+    ink_rgb = (14, 12, 10, 255)
+
+    def _draw_segment(a: Tuple[float, float], b: Tuple[float, float], ra: float, rb: float, pad: float, col) -> None:
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        d = max(math.hypot(dx, dy), 1e-4)
+        nx, ny = -dy / d, dx / d
+        rra, rrb = ra + pad, rb + pad
+        draw.polygon(
+            [
+                (a[0] + nx * rra, a[1] + ny * rra),
+                (b[0] + nx * rrb, b[1] + ny * rrb),
+                (b[0] - nx * rrb, b[1] - ny * rrb),
+                (a[0] - nx * rra, a[1] - ny * rra),
+            ],
+            fill=col,
+        )
+        draw.ellipse([a[0] - rra, a[1] - rra, a[0] + rra, a[1] + rra], fill=col)
+        draw.ellipse([b[0] - rrb, b[1] - rrb, b[0] + rrb, b[1] + rrb], fill=col)
+
+    def _draw_foot(pad: float, col) -> None:
+        _draw_segment(p_ankle, p_heel, r_ankle, r_heel, pad, col)
+        _draw_segment(p_heel, p_toe, r_heel, r_toe, pad, col)
+        _draw_segment(p_ankle, p_instep, r_ankle * 0.9, r_toe * 1.15, pad, col)
+        _draw_segment(p_instep, p_toe, r_toe * 1.15, r_toe, pad, col)
+
+    # Pass 1: Unified outer ink outline across Thigh + Calf + Foot
+    _draw_segment(p_hip, p_knee, r_hip, r_knee, stroke, ink_rgb)
+    _draw_segment(p_knee, p_ankle, r_knee, r_ankle, stroke, ink_rgb)
+    _draw_foot(stroke, ink_rgb)
+
+    # Pass 2: Seamless inner skin fill across Thigh + Calf + Foot (0% internal joint lines!)
+    _draw_segment(p_hip, p_knee, r_hip, r_knee, 0.0, fill_rgb)
+    _draw_segment(p_knee, p_ankle, r_knee, r_ankle, 0.0, fill_rgb)
+    _draw_foot(0.0, fill_rgb)
+
+    return canvas.resize((w, h), Image.Resampling.LANCZOS)

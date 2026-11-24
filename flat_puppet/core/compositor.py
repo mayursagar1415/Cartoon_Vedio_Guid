@@ -21,7 +21,7 @@ from flat_puppet.core.kinematics import (
     solve_2bone_ik,
     turn_transition_scale,
 )
-from flat_puppet.core.leg_modes import CapsuleLegRig, compute_walk_angles, render_leg_mesh
+from flat_puppet.core.leg_modes import CapsuleLegRig, compute_walk_angles, render_leg_mesh, render_leg_vector
 from flat_puppet.core.puppet import ScaledAssets
 
 
@@ -284,6 +284,30 @@ class SceneCompositor:
                 elif self.leg_mode == "capsule":
                     self.capsule_leg_f.render(target_canvas, self._rot_cached, px, py, ang_f, knee_f, foot_f)
                     self.capsule_leg_n.render(target_canvas, self._rot_cached, px, py, ang_n, knee_n, foot_n)
+                elif self.leg_mode == "vector":
+                    vec_size = self.assets.side_parts["torso"].size
+                    vec_f = render_leg_vector(
+                        vec_size,
+                        self.assets.legf_hip,
+                        self.assets.legf_knee,
+                        self.assets.legf_ankle,
+                        ang_f,
+                        knee_f,
+                        foot_f,
+                        is_far=True,
+                    )
+                    vec_n = render_leg_vector(
+                        vec_size,
+                        self.assets.legn_hip,
+                        self.assets.legn_knee,
+                        self.assets.legn_ankle,
+                        ang_n,
+                        knee_n,
+                        foot_n,
+                        is_far=False,
+                    )
+                    target_canvas.paste(vec_f, (px, py), vec_f)
+                    target_canvas.paste(vec_n, (px, py), vec_n)
                 else:
                     self._paste_2bone_limb(
                         target_canvas,
