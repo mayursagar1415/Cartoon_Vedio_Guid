@@ -27,19 +27,29 @@ pip install -r requirements.txt
 
 3. **Optional CLI Commands:**
    ```bash
-   python flat_puppet_demo.py bake [--force]          # Pre-bake transparent cutouts into assets_baked/
-   python flat_puppet_demo.py render [--workers 8]     # Save PNG frames to frames/ in parallel
-   python flat_puppet_demo.py encode --save-frames     # Keep PNG frames while encoding MP4
+   python flat_puppet_demo.py bake [--force]                              # Pre-bake cutouts into assets_baked/
+   python flat_puppet_demo.py story configs/stories/mitthu_ka_hissa.json -o STORY-DEMO.mp4
+   python flat_puppet_demo.py probe assets_story/bansi_front.jpg --step 100 -o .cache/probe.png
+   python flat_puppet_demo.py render [--workers 8]                        # Save PNG frames to frames/
+   python flat_puppet_demo.py encode --scene configs/scenes/bansi_mango.json --leg-mode sprite8 -o STORY-DEMO.mp4
    ```
+
+## Studio Rulebook & 30-Minute Automation Chain
+
+See **[Rule.md](Rule.md)** for the complete production rulebook covering character selection, organ extraction, Option 4 walk mechanics, 4x face synthesis, TTS/lip-sync, visual QA, and the low-token `story` compiler for scaling cleanly up to 30-minute episodes.
 
 ## Architecture
 
-- **`flat_puppet/core/image_ops.py`** — White-keying, polygon extraction, knee joint splitting, and hash-validated `AssetBaker` caching in `assets_baked/`.
-- **`flat_puppet/core/kinematics.py`** — 2-segment articulated leg walk cycle (hip + knee bend), smooth turn squash transitions, procedural blink generator, and breathing idle motion.
-- **`flat_puppet/core/audio.py`** — Asymmetric attack/release RMS envelope smoothing with hysteresis (prevents mouth chatter) + optional Rhubarb Lip Sync JSON support.
-- **`flat_puppet/core/puppet.py` & `configs/puppets/*.json`** — Data-driven puppet rig definitions (`gopal.json`, `tara.json`, `gulli.json`).
-- **`flat_puppet/core/compositor.py` & `configs/scenes/*.json`** — Data-driven scene staging with virtual camera push-in (`demo_courtyard.json`).
+- **`flat_puppet/core/image_ops.py`** — White-keying, polygon extraction, joint splitting, and hash-validated `AssetBaker` caching in `assets_baked/`.
+- **`flat_puppet/core/leg_modes.py`** — Option 4 (`sprite8`) 8-pose heel-to-toe studio walk strip & `render_leg_vector()` unified-outline leg renderer.
+- **`flat_puppet/core/kinematics.py`** — Analytical 2-bone IK solver (`solve_2bone_ik`), turn squash transitions, procedural blinks, and breathing idle motion.
+- **`flat_puppet/core/audio.py`** — Asymmetric attack/release RMS envelope smoothing with hysteresis (prevents mouth chatter) + Rhubarb JSON support.
+- **`flat_puppet/core/puppet.py` & `configs/puppets/*.json`** — Data-driven puppet definitions (`gopal`, `tara`, `gulli`, `bansi`, `kavya`, `mitthu`).
+- **`flat_puppet/core/compositor.py` & `configs/scenes/*.json`** — Multi-speaker scene staging with camera push-in (`demo_courtyard`, `bansi_mango`).
+- **`flat_puppet/tools/puppet_prep.py`** — Coordinate probe grids, closed-ink flood recoloring, arm removal, and 4x supersampled eyes/mouth synthesis.
+- **`flat_puppet/tools/voice_and_subs.py`** — Hash-cached Hindi neural TTS (`edge-tts`), silence trimming, procedural SFX, WAV mixing, and ASS subtitle writer.
+- **`flat_puppet/tools/story_compiler.py`** — Multi-shot Story Script compiler, stride-matched walk solver, incremental shot cache, and lossless concat stitcher.
 - **`flat_puppet/render/engine.py`** — Multi-core `ProcessPoolExecutor` frame renderer + zero-disk-I/O FFmpeg stdin pipe streamer.
-- **`flat_puppet/utils/ffmpeg.py`** — Cross-platform FFmpeg discovery and automatic Devanagari font fallback (`Nirmala UI` on Windows when `Noto Sans Devanagari` is absent).
+- **`flat_puppet/utils/ffmpeg.py`** — Cross-platform FFmpeg discovery and automatic Devanagari font fallback (`Nirmala UI` on Windows).
 
 Made with Muse for the *'Garib Kumhar aur Bolne Wala Ghada'* project.

@@ -10,6 +10,8 @@ from typing import Optional, Sequence
 
 from flat_puppet.core.puppet import bake_all_puppets
 from flat_puppet.render.engine import encode_video, render_test_frames, render_to_frames
+from flat_puppet.tools.puppet_prep import save_probe_grid
+from flat_puppet.tools.story_compiler import render_story
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -46,6 +48,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_encode.add_argument("--leg-mode", default=None, help="Override walking leg mode (cut/mesh/capsule/vector/sprite8)")
     p_encode.add_argument("--duration", type=float, default=None, help="Trim output duration in seconds")
 
+    # 'story' command (compact multi-shot Story Script -> TTS + ASS + incremental 30-min MP4)
+    p_story = sub.add_parser("story", help="Compile Story Script JSON and render multi-shot MP4")
+    p_story.add_argument("story", help="Path to Story Script JSON (e.g. configs/stories/mitthu_ka_hissa.json)")
+    p_story.add_argument("--output", "-o", default="STORY-OUT.mp4", help="Output MP4 file")
+    p_story.add_argument("--workers", type=int, default=None, help="Parallel worker processes")
+    p_story.add_argument("--compile-only", action="store_true", help="Only generate TTS/ASS/scene configs without rendering video")
+
+    # 'probe' command (coordinate grid overlay helper for rigging new characters cleanly)
+    p_probe = sub.add_parser("probe", help="Overlay coordinate grid on a character sprite for pivot picking")
+    p_probe.add_argument("image", help="Source image path")
+    p_probe.add_argument("--output", "-o", default=".cache/probe.png", help="Output PNG path")
+    p_probe.add_argument("--step", type=int, default=100, help="Major grid step in pixels")
+    p_probe.add_argument("--norm", action="store_true", help="Use normalized 0.1-0.9 overlay lines (for tail/companion rigging)")
+
     return parser
 
 
@@ -59,6 +75,27 @@ def main(argv: Optional[Sequence[str]] = None, root: Optional[Path] = None) -> i
     if not args_list:
         args_list = ["render"]
     args = parser.parse_args(args_list)
+
+    if args.command == "probe":
+        src = Path(args.image)
+        if not src.is_absolute():
+            src = base_dir / src
+        out = Path(args.output)
+        if not out.is_absolute():
+            out = base_dir / out
+        save_probe_grid(src, out, step_px=args.step, minor_step_px=args.step // 2, normalized=args.norm)
+        print(f"Probe image written to {out}")
+        return 0
+
+    if args.command == "story":
+        story_p = Path(args.story)
+        if not story_p.is_absolute():
+            story_p = base_dir / story_p
+        out_mp4 = Path(args.output)
+        if not out_mp4.is_absolute():
+            out_mp4 = base_dir / out_mp4
+        render_story(base_dir, config_dir, story_p, output_mp4=out_mp4, workers=args.workers, compile_only=args.compile_only)
+        return 0
 
     if args.command == "bake":
         t0 = time.perf_counter()

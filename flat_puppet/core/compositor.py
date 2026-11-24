@@ -276,7 +276,8 @@ class SceneCompositor:
         walk_dur = float(gopal_cfg.get("walk_duration", 4.2))
         side_h = int(gopal_cfg["side_height"])
         front_h = int(gopal_cfg["front_height"])
-        turn_scale = turn_transition_scale(t, walk_dur, half_window=float(gopal_cfg.get("turn_half_window", 0.14)))
+        half_win = float(gopal_cfg.get("turn_half_window", 0.14))
+        turn_scale = turn_transition_scale(t, walk_dur, half_window=half_win) if walk_dur > 0.05 and half_win > 0 else 1.0
 
         if t < walk_dur:
             walk_clip = self.actions.get(gopal_cfg.get("walk_action", "walk_cycle"))

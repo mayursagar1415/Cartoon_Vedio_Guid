@@ -1,0 +1,69 @@
+{
+  "name": "mitthu_ka_hissa",
+  "fps": 25,
+  "width": 1280,
+  "height": 720,
+  "ground_y": 688,
+  "default_background": "assets_story/story_orchard_bg.jpg",
+  "bgm": "bgm-soft.wav",
+  "bgm_volume": 0.16,
+  "cast": {
+    "hero": {
+      "puppet": "bansi",
+      "display_name": "बंसी चाचा",
+      "leg_mode": "sprite8",
+      "skin_rgb": [215, 141, 91],
+      "side_height": 475,
+      "front_height": 485,
+      "tts_voice": "hi-IN-MadhurNeural",
+      "tts_rate": "+12%",
+      "tts_pitch": "-3Hz",
+      "ass_color": "&H0066E0FF"
+    },
+    "partner": {
+      "puppet": "kavya",
+      "display_name": "काव्या",
+      "height": 355,
+      "x": 885,
+      "tts_voice": "hi-IN-SwaraNeural",
+      "tts_rate": "+12%",
+      "tts_pitch": "+4Hz",
+      "ass_color": "&H00FFFFFF"
+    },
+    "companion": {
+      "puppet": "mitthu",
+      "height": 162,
+      "x": 675
+    }
+  },
+  "shots": [
+    {
+      "walk_in": true,
+      "walk_duration": 3.35,
+      "walk_x_start": -55,
+      "walk_x_end": 315,
+      "talk_x": 335,
+      "lines": [
+        {
+          "speaker": "hero",
+          "text": "अरे काव्या, टोकरी में बस दो ही आम क्यों तोड़े?",
+          "gesture": true,
+          "pause_after": 0.25
+        },
+        {
+          "speaker": "partner",
+          "text": "बाकी मिठ्ठू के हैं चाचा, बाँटकर खाने से ही तो मिठास बढ़ती है!",
+          "pause_after": 0.10
+        }
+      ],
+      "sfx": [
+        {
+          "type": "chirp",
+          "hop": true,
+          "volume": 0.85,
+          "offset": 0.05
+        }
+      ]
+    }
+  ]
+}
