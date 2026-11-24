@@ -211,6 +211,46 @@ def _draw_tapered_capsule(
     return canvas.resize((w, h), Image.Resampling.LANCZOS)
 
 
+# Option 4: 8-Pose Studio Walk Strip (Contact, Down, Passing, High-Point x 2)
+# Each entry: (cyc_pos, legN_thigh, legN_knee, legN_foot, body_bob_px, dhoti_tilt_deg)
+_SPRITE8_KEYFRAMES = [
+    (0.000, +20.0,  -4.0, +16.0, -1.5, +1.8),   # 0: Contact (heel strike)
+    (0.125, +10.0,  -8.0,   0.0, -5.5, +0.9),   # 1: Down (weight squash, flat foot)
+    (0.250,  -2.0,  -2.0,   0.0, -1.0,  0.0),   # 2: Passing (planted straight leg)
+    (0.375, -13.0,  -4.0,  -6.0, +2.5, -1.0),   # 3: High-Point (rising toward push-off)
+    (0.500, -20.0, -12.0, -20.0, -1.5, -1.8),   # 4: Contact-2 (toe push-off)
+    (0.625, -10.0, -34.0, -14.0, -5.5, -0.9),   # 5: Down-2 (knee folds sharply in swing)
+    (0.750,  +4.0, -30.0,  -4.0, -1.0,  0.0),   # 6: Passing-2 (knee drives forward)
+    (0.875, +16.0, -12.0, +12.0, +2.5, +1.0),   # 7: High-Point-2 (extending for heel strike)
+]
+
+
+def compute_sprite8_pose(cyc: float) -> Tuple[float, float, float, float, float]:
+    """Option 4: Interpolate 8-pose cartoon walk cycle with weight bounce, toe-roll, and dhoti sway.
+
+    Returns (thigh_deg, knee_rel_deg, foot_world_deg, body_bob_px, dhoti_tilt_deg).
+    """
+    u = cyc % 1.0
+    kfs = _SPRITE8_KEYFRAMES
+    n = len(kfs)
+    for idx in range(n):
+        u0 = kfs[idx][0]
+        u1 = kfs[(idx + 1) % n][0] if idx + 1 < n else 1.0
+        if u0 <= u <= u1:
+            a = ease((u - u0) / max(u1 - u0, 1e-6))
+            p0 = kfs[idx]
+            p1 = kfs[(idx + 1) % n]
+            return (
+                p0[1] + (p1[1] - p0[1]) * a,
+                p0[2] + (p1[2] - p0[2]) * a,
+                p0[3] + (p1[3] - p0[3]) * a,
+                p0[4] + (p1[4] - p0[4]) * a,
+                p0[5] + (p1[5] - p0[5]) * a,
+            )
+    p0 = kfs[0]
+    return p0[1], p0[2], p0[3], p0[4], p0[5]
+
+
 def extract_closed_foot(
     leg_full: Image.Image,
     ankle: Tuple[float, float],
@@ -379,3 +419,43 @@ def render_leg_vector(
     _draw_foot(0.0, fill_rgb)
 
     return canvas.resize((w, h), Image.Resampling.LANCZOS)
+
+
+# Option 4: 8-Pose Studio Walk Strip (Contact, Down, Passing, High-Point x 2)
+# Each entry: (cyc_pos, legN_thigh, legN_knee, legN_foot, body_bob_px, dhoti_tilt_deg)
+_SPRITE8_KEYFRAMES = [
+    (0.000, +20.0,  -4.0, +16.0, -1.5, +1.8),   # 0: Contact (heel strike)
+    (0.125, +10.0,  -8.0,   0.0, -5.5, +0.9),   # 1: Down (weight squash, flat foot)
+    (0.250,  -2.0,  -2.0,   0.0, -1.0,  0.0),   # 2: Passing (planted straight leg)
+    (0.375, -13.0,  -4.0,  -6.0, +2.5, -1.0),   # 3: High-Point (rising toward push-off)
+    (0.500, -20.0, -12.0, -20.0, -1.5, -1.8),   # 4: Contact-2 (toe push-off)
+    (0.625, -10.0, -34.0, -14.0, -5.5, -0.9),   # 5: Down-2 (knee folds sharply in swing)
+    (0.750,  +4.0, -30.0,  -4.0, -1.0,  0.0),   # 6: Passing-2 (knee drives forward)
+    (0.875, +16.0, -12.0, +12.0, +2.5, +1.0),   # 7: High-Point-2 (extending for heel strike)
+]
+
+
+def compute_sprite8_pose(cyc: float) -> Tuple[float, float, float, float, float]:
+    """Option 4: Interpolate 8-pose cartoon walk cycle with weight bounce, toe-roll, and dhoti sway.
+
+    Returns (thigh_deg, knee_rel_deg, foot_world_deg, body_bob_px, dhoti_tilt_deg).
+    """
+    u = cyc % 1.0
+    kfs = _SPRITE8_KEYFRAMES
+    n = len(kfs)
+    for idx in range(n):
+        u0 = kfs[idx][0]
+        u1 = kfs[(idx + 1) % n][0] if idx + 1 < n else 1.0
+        if u0 <= u <= u1:
+            a = ease((u - u0) / max(u1 - u0, 1e-6))
+            p0 = kfs[idx]
+            p1 = kfs[(idx + 1) % n]
+            return (
+                p0[1] + (p1[1] - p0[1]) * a,
+                p0[2] + (p1[2] - p0[2]) * a,
+                p0[3] + (p1[3] - p0[3]) * a,
+                p0[4] + (p1[4] - p0[4]) * a,
+                p0[5] + (p1[5] - p0[5]) * a,
+            )
+    p0 = kfs[0]
+    return p0[1], p0[2], p0[3], p0[4], p0[5]

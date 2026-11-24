@@ -21,7 +21,13 @@ from flat_puppet.core.kinematics import (
     solve_2bone_ik,
     turn_transition_scale,
 )
-from flat_puppet.core.leg_modes import CapsuleLegRig, compute_walk_angles, render_leg_mesh, render_leg_vector
+from flat_puppet.core.leg_modes import (
+    CapsuleLegRig,
+    compute_sprite8_pose,
+    compute_walk_angles,
+    render_leg_mesh,
+    render_leg_vector,
+)
 from flat_puppet.core.puppet import ScaledAssets
 
 
@@ -240,19 +246,24 @@ class SceneCompositor:
             cyc = (t * walk_speed) % 1.0
             cyc_opp = (cyc + 0.5) % 1.0
 
+            dhoti_tilt = 0.0
             if self.leg_mode == "cut":
                 ang_n = walk_clip.eval_normalized("leg_near_thigh", cyc)
                 knee_n = walk_clip.eval_normalized("leg_near_knee", cyc)
                 ang_f = walk_clip.eval_normalized("leg_near_thigh", cyc_opp)
                 knee_f = walk_clip.eval_normalized("leg_near_knee", cyc_opp)
                 foot_n = foot_f = 0.0
+                bob = walk_clip.eval_normalized("body_bob", cyc)
+            elif self.leg_mode == "sprite8":
+                ang_n, knee_n, foot_n, bob, dhoti_tilt = compute_sprite8_pose(cyc)
+                ang_f, knee_f, foot_f, _, _ = compute_sprite8_pose(cyc_opp)
             else:
                 ang_n, knee_n, foot_n = compute_walk_angles(cyc)
                 ang_f, knee_f, foot_f = compute_walk_angles(cyc_opp)
+                bob = walk_clip.eval_normalized("body_bob", cyc)
 
             sh_ang = walk_clip.eval_normalized("arm_swing_shoulder", cyc)
             el_ang = walk_clip.eval_normalized("arm_swing_elbow", cyc)
-            bob = walk_clip.eval_normalized("body_bob", cyc)
 
             # Hip remains pinned at `y` under the dhoti; foot clearance comes naturally from knee bend + bob
             y = int(self.ground_y - side_h + bob)
@@ -260,7 +271,7 @@ class SceneCompositor:
             arm_y_off = int(self.assets.arm_side_off[1])
 
             def _draw_legs(target_canvas: Image.Image, px: int, py: int) -> None:
-                if self.leg_mode == "mesh":
+                if self.leg_mode in ("mesh", "sprite8"):
                     leg_f_img, (fx_off, fy_off) = render_leg_mesh(
                         self.assets.side_parts["legF_full"],
                         self.assets.legf_hip,
@@ -334,11 +345,20 @@ class SceneCompositor:
                         py,
                     )
 
+            torso_img = self.assets.side_parts["torso"]
+            torso_ox, torso_oy = 0, 0
+            if abs(dhoti_tilt) > 0.05:
+                hip_mid = (
+                    (self.assets.legn_hip[0] + self.assets.legf_hip[0]) * 0.5,
+                    self.assets.legn_hip[1] * 0.7,
+                )
+                torso_img, (torso_ox, torso_oy) = self._rot_cached(torso_img, dhoti_tilt, hip_mid)
+
             if turn_scale < 0.999:
                 local = Image.new("RGBA", self.assets.side_parts["torso"].size, (0, 0, 0, 0))
                 local.paste(self.assets.side_parts["under"], (0, 0), self.assets.side_parts["under"])
                 _draw_legs(local, 0, 0)
-                local.paste(self.assets.side_parts["torso"], (0, 0), self.assets.side_parts["torso"])
+                local.paste(torso_img, (torso_ox, torso_oy), torso_img)
                 self._paste_2bone_limb(
                     local,
                     self.assets.side_parts["arm_upper"],
@@ -356,7 +376,7 @@ class SceneCompositor:
             else:
                 frame.paste(self.assets.side_parts["under"], (int(x), y), self.assets.side_parts["under"])
                 _draw_legs(frame, int(x), y)
-                frame.paste(self.assets.side_parts["torso"], (int(x), y), self.assets.side_parts["torso"])
+                frame.paste(torso_img, (int(x) + torso_ox, y + torso_oy), torso_img)
                 self._paste_2bone_limb(
                     frame,
                     self.assets.side_parts["arm_upper"],
