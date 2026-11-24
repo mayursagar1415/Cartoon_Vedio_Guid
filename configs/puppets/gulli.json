@@ -1,0 +1,15 @@
+{
+  "name": "gulli",
+  "views": {
+    "side": {
+      "base_file": "media-generation-flat-gulli-side-0-ac39705f-d7d0-4a50-bd15-6a4c6a5ae1bc.webp",
+      "tail_poly_rel": [
+        [0.735, 0.44],
+        [0.875, 0.26],
+        [0.875, 0.50],
+        [0.76, 0.52]
+      ],
+      "tail_pivot_rel": [0.75, 0.47]
+    }
+  }
+}

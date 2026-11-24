@@ -1,0 +1,54 @@
+{
+  "name": "walk_cycle",
+  "description": "Polished 2-bone articulated walk cycle with hip-pinned stance, knee flexion swing, and counter-swinging bent elbow.",
+  "duration": 1.25,
+  "loop": true,
+  "tracks": {
+    "leg_near_thigh": {
+      "easing": "smoothstep",
+      "keyframes": [
+        [0.0, 15.0],
+        [0.55, -15.0],
+        [1.0, 15.0]
+      ]
+    },
+    "leg_near_knee": {
+      "easing": "smoothstep",
+      "keyframes": [
+        [0.0, 0.0],
+        [0.45, 0.0],
+        [0.55, -6.0],
+        [0.775, -24.0],
+        [1.0, 0.0]
+      ]
+    },
+    "arm_swing_shoulder": {
+      "easing": "ease_in_out",
+      "keyframes": [
+        [0.0, -7.0],
+        [0.5, 8.0],
+        [1.0, -7.0]
+      ]
+    },
+    "arm_swing_elbow": {
+      "easing": "ease_in_out",
+      "keyframes": [
+        [0.0, 8.0],
+        [0.25, 16.0],
+        [0.5, 22.0],
+        [0.75, 12.0],
+        [1.0, 8.0]
+      ]
+    },
+    "body_bob": {
+      "easing": "smoothstep",
+      "keyframes": [
+        [0.0, 0.0],
+        [0.25, -3.5],
+        [0.5, 0.0],
+        [0.75, -3.5],
+        [1.0, 0.0]
+      ]
+    }
+  }
+}

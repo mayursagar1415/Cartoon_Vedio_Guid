@@ -1,0 +1,54 @@
+{
+  "name": "gopal",
+  "views": {
+    "side": {
+      "base_file": "media-generation-flat-gopal-side-noarm-legsapar-0-cf2cd755-b4a2-4aa0-9936-a0ebc20681b1.webp",
+      "orig_file": "media-generation-flat-gopal-side-0-0e877276-a234-4e2e-b4df-3e5d8a70550c.webp",
+      "pivots": {
+        "shoulder": [437, 750],
+        "elbow": [435, 1130],
+        "wrist": [428, 1540],
+        "hip_near": [565, 1755],
+        "hip_far": [405, 1755],
+        "knee_near": [550, 1935],
+        "knee_far": [345, 1935],
+        "ankle_near": [550, 2145],
+        "ankle_far": [325, 2145]
+      },
+      "polygons": {
+        "leg_near": [[460, 1730], [665, 1730], [660, 1900], [630, 2030], [700, 2090], [782, 2130], [782, 2180], [470, 2180], [450, 2000], [448, 1850]],
+        "leg_far": [[325, 1730], [485, 1730], [470, 1850], [400, 1960], [350, 2030], [438, 2090], [438, 2180], [220, 2180], [205, 2090], [265, 1950], [300, 1830]],
+        "under_flap": [[375, 1700], [680, 1700], [665, 1845], [395, 1845]],
+        "arm": [[362, 700], [515, 700], [530, 990], [510, 1440], [500, 1560], [480, 1690], [380, 1690], [355, 1560], [350, 1440], [344, 990]]
+      }
+    },
+    "front": {
+      "base_file": "media-generation-flat-gopal-front-noarm-0-3ef6256d-7c4d-44f5-aef8-b535b1038a6d.webp",
+      "orig_file": "media-generation-flat-gopal-body-0-48552fb4-3384-402e-b8b7-a5854f961c94.webp",
+      "neck_cut_y": 610,
+      "variants": {
+        "half": "media-generation-flat-gopal-mouth-half-0-a2dfbcf8-d787-41fb-9dca-b586b285b936.webp",
+        "open": "media-generation-flat-gopal-mouth-open-0-4e534878-2690-40b0-8168-f0c371dfe5cb.webp",
+        "eyes": "media-generation-flat-gopal-eyes-closed-0-a01ac967-63a2-4062-92c4-0f2e4d1a2763.webp"
+      },
+      "pivots": {
+        "head": [557, 700],
+        "arm": [765, 875],
+        "elbow": [840, 1135],
+        "wrist": [945, 1380]
+      },
+      "boxes": {
+        "mouth": [570, 545, 740, 680],
+        "eyes": [480, 350, 760, 500]
+      },
+      "polygons": {
+        "arm": [[730, 830], [950, 830], [1030, 1200], [1025, 1470], [865, 1470], [800, 1150]],
+        "sleeve_stub": [[715, 820], [960, 820], [985, 1010], [880, 1050], [760, 1010], [715, 950]]
+      },
+      "offsets": {
+        "head": [-21, 0],
+        "arm": [-22, 0]
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "tara",
+  "views": {
+    "front": {
+      "base_file": "media-generation-flat-tara-body-0-468797d4-f104-42b5-8a43-dd693fb4dadc.webp",
+      "eyes_file": "media-generation-flat-tara-eyes-closed-0-da4a4ad5-fefc-4fd4-95b2-bbd2b1a9a806.webp",
+      "protect_box": [270, 390, 600, 550],
+      "boxes": {
+        "eyes": [270, 340, 590, 500]
+      }
+    }
+  }
+}
