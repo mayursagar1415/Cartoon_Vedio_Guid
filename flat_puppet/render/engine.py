@@ -16,9 +16,11 @@ from flat_puppet.utils.ffmpeg import build_encode_command
 _WORKER_COMPOSITOR: Optional[SceneCompositor] = None
 
 
-def _init_worker(root_str: str, config_str: str, scene_str: str) -> None:
+def _init_worker(root_str: str, config_str: str, scene_str: str, leg_mode: Optional[str]) -> None:
     global _WORKER_COMPOSITOR
-    _WORKER_COMPOSITOR = SceneCompositor(Path(root_str), Path(config_str), Path(scene_str))
+    _WORKER_COMPOSITOR = SceneCompositor(
+        Path(root_str), Path(config_str), Path(scene_str), leg_mode_override=leg_mode
+    )
 
 
 def _worker_save_frame(args: Tuple[int, str]) -> int:
@@ -40,10 +42,11 @@ def render_test_frames(
     config_dir: Path,
     scene_path: Path,
     samples: Sequence[Tuple[int, str]] = ((9, "test6-swingF"), (24, "test6-swingN"), (150, "test6-speak")),
+    leg_mode: Optional[str] = None,
 ) -> list[Path]:
     t0 = time.perf_counter()
     bake_all_puppets(root, config_dir, force=False)
-    comp = SceneCompositor(root, config_dir, scene_path)
+    comp = SceneCompositor(root, config_dir, scene_path, leg_mode_override=leg_mode)
     saved: list[Path] = []
     for idx, name in samples:
         out_path = root / f"{name}.png"
@@ -60,6 +63,7 @@ def render_to_frames(
     scene_path: Path,
     out_dir: Optional[Path] = None,
     workers: Optional[int] = None,
+    leg_mode: Optional[str] = None,
 ) -> Path:
     t0 = time.perf_counter()
     target_dir = out_dir or (root / "frames")
@@ -69,7 +73,7 @@ def render_to_frames(
         old_frame.unlink()
 
     bake_all_puppets(root, config_dir, force=False)
-    comp_main = SceneCompositor(root, config_dir, scene_path)
+    comp_main = SceneCompositor(root, config_dir, scene_path, leg_mode_override=leg_mode)
     nframes = comp_main.nframes
     max_workers = max(1, workers or min(os.cpu_count() or 4, 8))
 
@@ -82,7 +86,7 @@ def render_to_frames(
         with ProcessPoolExecutor(
             max_workers=max_workers,
             initializer=_init_worker,
-            initargs=(str(root), str(config_dir), str(scene_path)),
+            initargs=(str(root), str(config_dir), str(scene_path), leg_mode),
         ) as executor:
             list(executor.map(_worker_save_frame, tasks, chunksize=chunksize))
 
@@ -100,14 +104,18 @@ def encode_video(
     save_frames: bool = False,
     no_audio: bool = False,
     no_subs: bool = False,
+    leg_mode: Optional[str] = None,
+    max_duration: Optional[float] = None,
 ) -> Path:
     t0 = time.perf_counter()
     scene_cfg = load_scene_config(scene_path, root=root)
     out_file = output_mp4 or (root / "FLAT-DEMO.mp4")
+    out_file.parent.mkdir(parents=True, exist_ok=True)
 
     bake_all_puppets(root, config_dir, force=False)
-    comp_main = SceneCompositor(root, config_dir, scene_path)
-    nframes = comp_main.nframes
+    comp_main = SceneCompositor(root, config_dir, scene_path, leg_mode_override=leg_mode)
+    duration = min(comp_main.duration, max_duration) if max_duration else comp_main.duration
+    nframes = int(round(duration * comp_main.fps))
 
     audio_cfg = scene_cfg.get("audio", {})
     voice_start = float(audio_cfg.get("voice_start", 0.0))
@@ -121,12 +129,12 @@ def encode_video(
     max_workers = max(1, workers or min(os.cpu_count() or 4, 8))
 
     if save_frames:
-        frames_dir = render_to_frames(root, config_dir, scene_path, workers=max_workers)
+        frames_dir = render_to_frames(root, config_dir, scene_path, workers=max_workers, leg_mode=leg_mode)
         cmd = build_encode_command(
             width=comp_main.width,
             height=comp_main.height,
             fps=comp_main.fps,
-            duration=comp_main.duration,
+            duration=duration,
             output_mp4=out_file,
             voice_path=voice_path,
             voice_delay_sec=voice_start,
@@ -144,7 +152,7 @@ def encode_video(
             width=comp_main.width,
             height=comp_main.height,
             fps=comp_main.fps,
-            duration=comp_main.duration,
+            duration=duration,
             output_mp4=out_file,
             voice_path=voice_path,
             voice_delay_sec=voice_start,
@@ -166,7 +174,7 @@ def encode_video(
                 with ProcessPoolExecutor(
                     max_workers=max_workers,
                     initializer=_init_worker,
-                    initargs=(str(root), str(config_dir), str(scene_path)),
+                    initargs=(str(root), str(config_dir), str(scene_path), leg_mode),
                 ) as executor:
                     for raw_bytes in executor.map(_worker_render_bytes, range(nframes), chunksize=chunksize):
                         proc.stdin.write(raw_bytes)

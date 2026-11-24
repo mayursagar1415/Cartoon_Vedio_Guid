@@ -21,6 +21,7 @@ from flat_puppet.core.kinematics import (
     solve_2bone_ik,
     turn_transition_scale,
 )
+from flat_puppet.core.leg_modes import compute_walk_angles, render_leg_mesh
 from flat_puppet.core.puppet import ScaledAssets
 
 
@@ -35,10 +36,17 @@ def load_scene_config(scene_path: Path, root: Optional[Path] = None) -> dict:
 class SceneCompositor:
     """Renders individual frames for a scene JSON definition."""
 
-    def __init__(self, root: Path, config_dir: Path, scene_path: Path) -> None:
+    def __init__(
+        self,
+        root: Path,
+        config_dir: Path,
+        scene_path: Path,
+        leg_mode_override: Optional[str] = None,
+    ) -> None:
         self.root = root
         self.config_dir = config_dir
         self.scene = load_and_validate_scene(root, scene_path)
+        self.leg_mode: str = leg_mode_override or self.scene["characters"]["gopal"].get("leg_mode", "mesh")
 
         self.fps: int = int(self.scene.get("fps", 25))
         self.width: int = int(self.scene.get("width", 1280))
@@ -218,10 +226,15 @@ class SceneCompositor:
             cyc = (t * walk_speed) % 1.0
             cyc_opp = (cyc + 0.5) % 1.0
 
-            ang_n = walk_clip.eval_normalized("leg_near_thigh", cyc)
-            knee_n = walk_clip.eval_normalized("leg_near_knee", cyc)
-            ang_f = walk_clip.eval_normalized("leg_near_thigh", cyc_opp)
-            knee_f = walk_clip.eval_normalized("leg_near_knee", cyc_opp)
+            if self.leg_mode == "cut":
+                ang_n = walk_clip.eval_normalized("leg_near_thigh", cyc)
+                knee_n = walk_clip.eval_normalized("leg_near_knee", cyc)
+                ang_f = walk_clip.eval_normalized("leg_near_thigh", cyc_opp)
+                knee_f = walk_clip.eval_normalized("leg_near_knee", cyc_opp)
+                foot_n = foot_f = 0.0
+            else:
+                ang_n, knee_n, foot_n = compute_walk_angles(cyc)
+                ang_f, knee_f, foot_f = compute_walk_angles(cyc_opp)
 
             sh_ang = walk_clip.eval_normalized("arm_swing_shoulder", cyc)
             el_ang = walk_clip.eval_normalized("arm_swing_elbow", cyc)
@@ -232,33 +245,58 @@ class SceneCompositor:
             arm_x_off = int(self.assets.arm_side_off[0])
             arm_y_off = int(self.assets.arm_side_off[1])
 
+            def _draw_legs(target_canvas: Image.Image, px: int, py: int) -> None:
+                if self.leg_mode == "mesh":
+                    leg_f_img, (fx_off, fy_off) = render_leg_mesh(
+                        self.assets.side_parts["legF_full"],
+                        self.assets.legf_hip,
+                        self.assets.legf_knee,
+                        self.assets.legf_ankle,
+                        ang_f,
+                        knee_f,
+                        foot_f,
+                    )
+                    leg_n_img, (nx_off, ny_off) = render_leg_mesh(
+                        self.assets.side_parts["legN_full"],
+                        self.assets.legn_hip,
+                        self.assets.legn_knee,
+                        self.assets.legn_ankle,
+                        ang_n,
+                        knee_n,
+                        foot_n,
+                    )
+                    target_canvas.paste(leg_f_img, (px + fx_off, py + fy_off), leg_f_img)
+                    target_canvas.paste(leg_n_img, (px + nx_off, py + ny_off), leg_n_img)
+                else:
+                    self._paste_2bone_limb(
+                        target_canvas,
+                        self.assets.side_parts["legF_thigh"],
+                        self.assets.side_parts["legF_calf"],
+                        self.assets.side_parts["legF_cap"],
+                        self.assets.legf_hip,
+                        self.assets.legf_knee,
+                        ang_f,
+                        knee_f,
+                        px,
+                        py,
+                    )
+                    self._paste_2bone_limb(
+                        target_canvas,
+                        self.assets.side_parts["legN_thigh"],
+                        self.assets.side_parts["legN_calf"],
+                        self.assets.side_parts["legN_cap"],
+                        self.assets.legn_hip,
+                        self.assets.legn_knee,
+                        ang_n,
+                        knee_n,
+                        px,
+                        py,
+                    )
+
             if turn_scale < 0.999:
                 local = Image.new("RGBA", self.assets.side_parts["torso"].size, (0, 0, 0, 0))
                 local.paste(self.assets.side_parts["under"], (0, 0), self.assets.side_parts["under"])
-                self._paste_2bone_limb(
-                    local,
-                    self.assets.side_parts["legF_thigh"],
-                    self.assets.side_parts["legF_calf"],
-                    self.assets.side_parts["legF_cap"],
-                    self.assets.legf_hip,
-                    self.assets.legf_knee,
-                    ang_f,
-                    knee_f,
-                    0,
-                    0,
-                )
-                self._paste_2bone_limb(
-                    local,
-                    self.assets.side_parts["legN_thigh"],
-                    self.assets.side_parts["legN_calf"],
-                    self.assets.side_parts["legN_cap"],
-                    self.assets.legn_hip,
-                    self.assets.legn_knee,
-                    ang_n,
-                    knee_n,
-                    0,
-                    0,
-                )
+                _draw_legs(local, 0, 0)
                 local.paste(self.assets.side_parts["torso"], (0, 0), self.assets.side_parts["torso"])
                 self._paste_2bone_limb(
                     local,
@@ -276,30 +314,7 @@ class SceneCompositor:
                 frame.paste(squashed, (int(x) + x_shift, y), squashed)
             else:
                 frame.paste(self.assets.side_parts["under"], (int(x), y), self.assets.side_parts["under"])
-                self._paste_2bone_limb(
-                    frame,
-                    self.assets.side_parts["legF_thigh"],
-                    self.assets.side_parts["legF_calf"],
-                    self.assets.side_parts["legF_cap"],
-                    self.assets.legf_hip,
-                    self.assets.legf_knee,
-                    ang_f,
-                    knee_f,
-                    int(x),
-                    y,
-                )
-                self._paste_2bone_limb(
-                    frame,
-                    self.assets.side_parts["legN_thigh"],
-                    self.assets.side_parts["legN_calf"],
-                    self.assets.side_parts["legN_cap"],
-                    self.assets.legn_hip,
-                    self.assets.legn_knee,
-                    ang_n,
-                    knee_n,
-                    int(x),
-                    y,
-                )
+                _draw_legs(frame, int(x), y)
                 frame.paste(self.assets.side_parts["torso"], (int(x), y), self.assets.side_parts["torso"])
                 self._paste_2bone_limb(
                     frame,

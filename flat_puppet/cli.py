@@ -22,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     # 'test' command (backwards-compatible)
     p_test = sub.add_parser("test", help="Render 3 diagnostic test pose frames")
     p_test.add_argument("--scene", default="configs/scenes/demo_courtyard.json", help="Scene JSON path")
+    p_test.add_argument("--leg-mode", default=None, help="Override walking leg mode (cut/mesh/capsule/vector/sprite8)")
 
     # 'bake' command
     p_bake = sub.add_parser("bake", help="Pre-bake transparent character cutouts into assets_baked/")
@@ -32,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_render.add_argument("--scene", default="configs/scenes/demo_courtyard.json", help="Scene JSON path")
     p_render.add_argument("--out", default="frames", help="Output frames directory")
     p_render.add_argument("--workers", type=int, default=None, help="Parallel worker processes")
+    p_render.add_argument("--leg-mode", default=None, help="Override walking leg mode (cut/mesh/capsule/vector/sprite8)")
 
     # 'encode' command
     p_encode = sub.add_parser("encode", help="Render and stream straight into FFmpeg to produce MP4")
@@ -41,6 +43,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_encode.add_argument("--save-frames", action="store_true", help="Also write PNG frames to frames/")
     p_encode.add_argument("--no-audio", action="store_true", help="Skip voice and BGM tracks")
     p_encode.add_argument("--no-subs", action="store_true", help="Skip subtitle burn-in")
+    p_encode.add_argument("--leg-mode", default=None, help="Override walking leg mode (cut/mesh/capsule/vector/sprite8)")
+    p_encode.add_argument("--duration", type=float, default=None, help="Trim output duration in seconds")
 
     return parser
 
@@ -67,14 +71,14 @@ def main(argv: Optional[Sequence[str]] = None, root: Optional[Path] = None) -> i
         scene_path = base_dir / scene_path
 
     if args.command == "test":
-        render_test_frames(base_dir, config_dir, scene_path)
+        render_test_frames(base_dir, config_dir, scene_path, leg_mode=args.leg_mode)
         return 0
 
     if args.command == "render":
         out_dir = Path(args.out)
         if not out_dir.is_absolute():
             out_dir = base_dir / out_dir
-        render_to_frames(base_dir, config_dir, scene_path, out_dir=out_dir, workers=args.workers)
+        render_to_frames(base_dir, config_dir, scene_path, out_dir=out_dir, workers=args.workers, leg_mode=args.leg_mode)
         return 0
 
     if args.command == "encode":
@@ -90,6 +94,8 @@ def main(argv: Optional[Sequence[str]] = None, root: Optional[Path] = None) -> i
             save_frames=args.save_frames,
             no_audio=args.no_audio,
             no_subs=args.no_subs,
+            leg_mode=args.leg_mode,
+            max_duration=args.duration,
         )
         return 0
 

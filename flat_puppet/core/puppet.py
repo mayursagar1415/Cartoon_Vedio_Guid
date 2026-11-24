@@ -48,6 +48,8 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
         "gopal/side_arm_upper.png",
         "gopal/side_arm_lower.png",
         "gopal/side_arm_cap.png",
+        "gopal/side_legN_full.png",
+        "gopal/side_legF_full.png",
         "gopal/side_legN_thigh.png",
         "gopal/side_legN_calf.png",
         "gopal/side_legN_cap.png",
@@ -120,6 +122,8 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
     baker.save_image("gopal/side_arm_upper.png", side_arm_upper)
     baker.save_image("gopal/side_arm_lower.png", side_arm_lower)
     baker.save_image("gopal/side_arm_cap.png", side_arm_cap)
+    baker.save_image("gopal/side_legN_full.png", leg_n_full)
+    baker.save_image("gopal/side_legF_full.png", leg_f_full)
     baker.save_image("gopal/side_legN_thigh.png", leg_n_thigh)
     baker.save_image("gopal/side_legN_calf.png", leg_n_calf)
     baker.save_image("gopal/side_legN_cap.png", leg_n_cap)
@@ -136,6 +140,8 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
             "hip_far": s2(side_cfg["pivots"]["hip_far"]),
             "knee_near": knee_n,
             "knee_far": knee_f,
+            "ankle_near": s2(side_cfg["pivots"]["ankle_near"]),
+            "ankle_far": s2(side_cfg["pivots"]["ankle_far"]),
             "arm_offset": [sb[0] - sb2[0], sb[1] - sb2[1]],
         },
     )
@@ -284,6 +290,8 @@ class ScaledAssets:
             ("arm_upper", "gopal/side_arm_upper.png"),
             ("arm_lower", "gopal/side_arm_lower.png"),
             ("arm_cap", "gopal/side_arm_cap.png"),
+            ("legN_full", "gopal/side_legN_full.png"),
+            ("legF_full", "gopal/side_legF_full.png"),
             ("legN_thigh", "gopal/side_legN_thigh.png"),
             ("legN_calf", "gopal/side_legN_calf.png"),
             ("legN_cap", "gopal/side_legN_cap.png"),
@@ -301,6 +309,8 @@ class ScaledAssets:
         self.legf_hip = (side_meta["hip_far"][0] * ss, side_meta["hip_far"][1] * ss)
         self.legn_knee = (side_meta["knee_near"][0] * ss, side_meta["knee_near"][1] * ss)
         self.legf_knee = (side_meta["knee_far"][0] * ss, side_meta["knee_far"][1] * ss)
+        self.legn_ankle = (side_meta["ankle_near"][0] * ss, side_meta["ankle_near"][1] * ss)
+        self.legf_ankle = (side_meta["ankle_far"][0] * ss, side_meta["ankle_far"][1] * ss)
         self.arm_side_off = (side_meta["arm_offset"][0] * ss, side_meta["arm_offset"][1] * ss)
 
         # Gopal Front (2-bone IK arm + head)
