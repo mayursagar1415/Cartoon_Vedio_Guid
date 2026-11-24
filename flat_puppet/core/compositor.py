@@ -21,7 +21,7 @@ from flat_puppet.core.kinematics import (
     solve_2bone_ik,
     turn_transition_scale,
 )
-from flat_puppet.core.leg_modes import compute_walk_angles, render_leg_mesh
+from flat_puppet.core.leg_modes import CapsuleLegRig, compute_walk_angles, render_leg_mesh
 from flat_puppet.core.puppet import ScaledAssets
 
 
@@ -62,6 +62,20 @@ class SceneCompositor:
         self.assets = ScaledAssets(root, config_dir, self.scene)
         self.actions = ActionLibrary(config_dir / "actions")
         self._rot_cache: Dict[Tuple[int, float, Tuple[float, float]], Tuple[Image.Image, Tuple[int, int]]] = {}
+        self.capsule_leg_n = CapsuleLegRig(
+            self.assets.side_parts["legN_full"],
+            self.assets.legn_hip,
+            self.assets.legn_knee,
+            self.assets.legn_ankle,
+            is_far=False,
+        )
+        self.capsule_leg_f = CapsuleLegRig(
+            self.assets.side_parts["legF_full"],
+            self.assets.legf_hip,
+            self.assets.legf_knee,
+            self.assets.legf_ankle,
+            is_far=True,
+        )
 
         audio_cfg = self.scene.get("audio", {})
         voice_rel = audio_cfg.get("voice")
@@ -267,6 +281,9 @@ class SceneCompositor:
                     )
                     target_canvas.paste(leg_f_img, (px + fx_off, py + fy_off), leg_f_img)
                     target_canvas.paste(leg_n_img, (px + nx_off, py + ny_off), leg_n_img)
+                elif self.leg_mode == "capsule":
+                    self.capsule_leg_f.render(target_canvas, self._rot_cached, px, py, ang_f, knee_f, foot_f)
+                    self.capsule_leg_n.render(target_canvas, self._rot_cached, px, py, ang_n, knee_n, foot_n)
                 else:
                     self._paste_2bone_limb(
                         target_canvas,

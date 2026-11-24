@@ -165,3 +165,129 @@ def render_leg_mesh(
 
     warped = _bilinear_sample_rgba(crop_arr, sx, sy)
     return Image.fromarray(warped, "RGBA"), (x0, y0)
+
+
+def _draw_tapered_capsule(
+    size: Tuple[int, int],
+    p0: Tuple[float, float],
+    p1: Tuple[float, float],
+    r0: float,
+    r1: float,
+    fill_rgb: Tuple[int, int, int],
+    outline_rgb: Tuple[int, int, int] = (14, 12, 10),
+    stroke: float = 2.6,
+    scale: int = 2,
+) -> Image.Image:
+    """Draw a 2x-supersampled closed-outline tapered capsule between p0 and p1."""
+    w, h = size
+    sw, sh = w * scale, h * scale
+    canvas = Image.new("RGBA", (sw, sh), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+
+    x0, y0 = p0[0] * scale, p0[1] * scale
+    x1, y1 = p1[0] * scale, p1[1] * scale
+    sr0, sr1 = r0 * scale, r1 * scale
+    st = stroke * scale
+
+    dx, dy = x1 - x0, y1 - y0
+    dist = max(math.hypot(dx, dy), 1e-4)
+    nx, ny = -dy / dist, dx / dist
+
+    def _draw_body(pad: float, color: Tuple[int, int, int, int]) -> None:
+        rr0 = sr0 + pad
+        rr1 = sr1 + pad
+        poly = [
+            (x0 + nx * rr0, y0 + ny * rr0),
+            (x1 + nx * rr1, y1 + ny * rr1),
+            (x1 - nx * rr1, y1 - ny * rr1),
+            (x0 - nx * rr0, y0 - ny * rr0),
+        ]
+        draw.polygon(poly, fill=color)
+        draw.ellipse([x0 - rr0, y0 - rr0, x0 + rr0, y0 + rr0], fill=color)
+        draw.ellipse([x1 - rr1, y1 - rr1, x1 + rr1, y1 + rr1], fill=color)
+
+    _draw_body(st, (*outline_rgb, 255))
+    _draw_body(0.0, (*fill_rgb, 255))
+    return canvas.resize((w, h), Image.Resampling.LANCZOS)
+
+
+def extract_closed_foot(
+    leg_full: Image.Image,
+    ankle: Tuple[float, float],
+    fill_rgb: Tuple[int, int, int],
+    outline_rgb: Tuple[int, int, int] = (14, 12, 10),
+) -> Image.Image:
+    """Extract Gopal's drawn foot below ankle with a clean rounded ankle-ball cap."""
+    w, h = leg_full.size
+    ax, ay = ankle
+    arr = np.asarray(leg_full).copy()
+    yy, _ = np.mgrid[0:h, 0:w]
+    # Keep foot pixels below ankle
+    arr[yy < ay - 2, 3] = 0
+    foot_img = Image.fromarray(arr, "RGBA")
+
+    # Add rounded closed ankle cap on top so ankle bends cleanly without open edge
+    cap = _draw_tapered_capsule(
+        (w, h),
+        (ax, ay),
+        (ax, ay + 6),
+        r0=10.5,
+        r1=10.0,
+        fill_rgb=fill_rgb,
+        outline_rgb=outline_rgb,
+        stroke=2.2,
+    )
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    out.paste(cap, (0, 0), cap)
+    out.paste(foot_img, (0, 0), foot_img)
+    return out
+
+
+class CapsuleLegRig:
+    """Option 2: Pre-built closed-outline 3-part capsule rig (Thigh + Calf + Foot) like Ramu sheet."""
+
+    def __init__(
+        self,
+        leg_full: Image.Image,
+        hip: Tuple[float, float],
+        knee: Tuple[float, float],
+        ankle: Tuple[float, float],
+        is_far: bool = False,
+    ) -> None:
+        self.hip = hip
+        self.knee = knee
+        self.ankle = ankle
+        fill = (194, 144, 105) if is_far else (228, 170, 124)
+        size = leg_full.size
+        self.thigh = _draw_tapered_capsule(size, hip, knee, r0=17.5, r1=12.5, fill_rgb=fill)
+        self.calf = _draw_tapered_capsule(size, knee, ankle, r0=12.0, r1=9.5, fill_rgb=fill)
+        self.foot = extract_closed_foot(leg_full, ankle, fill_rgb=fill)
+
+    def render(
+        self,
+        canvas: Image.Image,
+        rot_fn,
+        pos_x: int,
+        pos_y: int,
+        thigh_ang: float,
+        knee_rel_ang: float,
+        foot_world_ang: float,
+    ) -> None:
+        thigh_r, (tx, ty) = rot_fn(self.thigh, thigh_ang, self.hip)
+        new_knee = rotate_point_pil(self.knee, self.hip, thigh_ang)
+
+        calf_ang = thigh_ang + knee_rel_ang
+        calf_r, (cx, cy) = rot_fn(self.calf, calf_ang, self.knee)
+        dkx = new_knee[0] - self.knee[0]
+        dky = new_knee[1] - self.knee[1]
+
+        rot_ankle = rotate_point_pil(self.ankle, self.knee, calf_ang)
+        new_ankle = (rot_ankle[0] + dkx, rot_ankle[1] + dky)
+        dax = new_ankle[0] - self.ankle[0]
+        day = new_ankle[1] - self.ankle[1]
+
+        foot_r, (fx, fy) = rot_fn(self.foot, foot_world_ang, self.ankle)
+
+        canvas.paste(foot_r, (int(round(pos_x + dax)) + fx, int(round(pos_y + day)) + fy), foot_r)
+        canvas.paste(calf_r, (int(round(pos_x + dkx)) + cx, int(round(pos_y + dky)) + cy), calf_r)
+        canvas.paste(thigh_r, (pos_x + tx, pos_y + ty), thigh_r)
