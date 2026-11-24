@@ -271,7 +271,7 @@ class SceneCompositor:
             arm_y_off = int(self.assets.arm_side_off[1])
 
             def _draw_legs(target_canvas: Image.Image, px: int, py: int) -> None:
-                if self.leg_mode in ("mesh", "sprite8"):
+                if self.leg_mode == "mesh":
                     leg_f_img, (fx_off, fy_off) = render_leg_mesh(
                         self.assets.side_parts["legF_full"],
                         self.assets.legf_hip,
@@ -295,13 +295,15 @@ class SceneCompositor:
                 elif self.leg_mode == "capsule":
                     self.capsule_leg_f.render(target_canvas, self._rot_cached, px, py, ang_f, knee_f, foot_f)
                     self.capsule_leg_n.render(target_canvas, self._rot_cached, px, py, ang_n, knee_n, foot_n)
-                elif self.leg_mode == "vector":
+                elif self.leg_mode in ("vector", "sprite8"):
                     vec_size = self.assets.side_parts["torso"].size
+                    # Align far ankle height with near ankle so both feet touch the exact ground plane
+                    far_ankle_aligned = (self.assets.legf_ankle[0], self.assets.legn_ankle[1])
                     vec_f = render_leg_vector(
                         vec_size,
                         self.assets.legf_hip,
                         self.assets.legf_knee,
-                        self.assets.legf_ankle,
+                        far_ankle_aligned,
                         ang_f,
                         knee_f,
                         foot_f,

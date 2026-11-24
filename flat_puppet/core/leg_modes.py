@@ -343,7 +343,7 @@ def render_leg_vector(
     foot_world_ang: float,
     is_far: bool = False,
 ) -> Image.Image:
-    """Option 3: Unified-outline procedural cartoon leg (skin fill + single outer stroke, 0% seams)."""
+    """Option 3/4: Unified-outline procedural cartoon leg matching Gopal's bare-ankle & slim foot proportions."""
     w, h = size
     scale = 2
     sw, sh = w * scale, h * scale
@@ -357,10 +357,10 @@ def render_leg_vector(
     rot_ankle = rotate_point_pil(ankle, knee, calf_ang)
     new_ankle = (rot_ankle[0] + dkx, rot_ankle[1] + dky)
 
-    # Foot heel & toe offsets relative to ankle
-    heel_rel = (-14.0, 14.0)
-    toe_rel = (38.0, 16.0)
-    instep_rel = (16.0, 4.0)
+    # Slim barefoot proportions matched to Gopal's drawn side foot
+    heel_rel = (-10.0, 13.0)
+    toe_rel = (36.0, 14.5)
+    instep_rel = (14.0, 4.5)
     new_heel = rotate_point_pil((new_ankle[0] + heel_rel[0], new_ankle[1] + heel_rel[1]), new_ankle, foot_world_ang)
     new_toe = rotate_point_pil((new_ankle[0] + toe_rel[0], new_ankle[1] + toe_rel[1]), new_ankle, foot_world_ang)
     new_instep = rotate_point_pil((new_ankle[0] + instep_rel[0], new_ankle[1] + instep_rel[1]), new_ankle, foot_world_ang)
@@ -375,12 +375,12 @@ def render_leg_vector(
     p_toe = sc(new_toe)
     p_instep = sc(new_instep)
 
-    r_hip = 17.0 * scale
-    r_knee = 12.2 * scale
-    r_ankle = 9.2 * scale
-    r_heel = 8.5 * scale
-    r_toe = 6.2 * scale
-    stroke = 2.6 * scale
+    r_hip = 15.5 * scale
+    r_knee = 10.6 * scale
+    r_ankle = 6.6 * scale
+    r_heel = 5.2 * scale
+    r_toe = 3.6 * scale
+    stroke = 2.1 * scale
 
     fill_rgb = (194, 144, 105, 255) if is_far else (228, 170, 124, 255)
     ink_rgb = (14, 12, 10, 255)
@@ -405,7 +405,7 @@ def render_leg_vector(
     def _draw_foot(pad: float, col) -> None:
         _draw_segment(p_ankle, p_heel, r_ankle, r_heel, pad, col)
         _draw_segment(p_heel, p_toe, r_heel, r_toe, pad, col)
-        _draw_segment(p_ankle, p_instep, r_ankle * 0.9, r_toe * 1.15, pad, col)
+        _draw_segment(p_ankle, p_instep, r_ankle * 0.85, r_toe * 1.15, pad, col)
         _draw_segment(p_instep, p_toe, r_toe * 1.15, r_toe, pad, col)
 
     # Pass 1: Unified outer ink outline across Thigh + Calf + Foot
@@ -421,17 +421,17 @@ def render_leg_vector(
     return canvas.resize((w, h), Image.Resampling.LANCZOS)
 
 
-# Option 4: 8-Pose Studio Walk Strip (Contact, Down, Passing, High-Point x 2)
-# Each entry: (cyc_pos, legN_thigh, legN_knee, legN_foot, body_bob_px, dhoti_tilt_deg)
+# Option 4 (Refined): 8-Pose Studio Walk Strip (Contact, Down, Passing, High-Point x 2)
+# Each entry: (cyc_pos, thigh_deg, knee_rel_deg, foot_world_deg, body_bob_px, dhoti_tilt_deg)
 _SPRITE8_KEYFRAMES = [
-    (0.000, +20.0,  -4.0, +16.0, -1.5, +1.8),   # 0: Contact (heel strike)
-    (0.125, +10.0,  -8.0,   0.0, -5.5, +0.9),   # 1: Down (weight squash, flat foot)
-    (0.250,  -2.0,  -2.0,   0.0, -1.0,  0.0),   # 2: Passing (planted straight leg)
-    (0.375, -13.0,  -4.0,  -6.0, +2.5, -1.0),   # 3: High-Point (rising toward push-off)
-    (0.500, -20.0, -12.0, -20.0, -1.5, -1.8),   # 4: Contact-2 (toe push-off)
-    (0.625, -10.0, -34.0, -14.0, -5.5, -0.9),   # 5: Down-2 (knee folds sharply in swing)
-    (0.750,  +4.0, -30.0,  -4.0, -1.0,  0.0),   # 6: Passing-2 (knee drives forward)
-    (0.875, +16.0, -12.0, +12.0, +2.5, +1.0),   # 7: High-Point-2 (extending for heel strike)
+    (0.000, +18.0,  -2.0, +12.0, -1.0, 0.0),   # 0: Contact (heel strike)
+    (0.125, +10.0,  -3.0,   0.0, -4.0, 0.0),   # 1: Down (weight squash, foot flat on ground)
+    (0.275,   0.0,   0.0,   0.0, +1.0, 0.0),   # 2: Passing (straight planted leg under hip)
+    (0.450, -14.0,   0.0,   0.0, +0.5, 0.0),   # 3: High-Point (heel still anchored, body forward)
+    (0.550, -18.0, -12.0, -18.0, -1.0, 0.0),   # 4: Toe-off (heel lifts to push off)
+    (0.700,  -2.0, -30.0, -15.0, -3.5, 0.0),   # 5: Swing passing (knee folds cleanly backward)
+    (0.840, +12.0, -16.0,  -2.0, +1.5, 0.0),   # 6: Swing reach (shin extends forward)
+    (0.940, +17.0,  -4.0, +10.0, +0.5, 0.0),   # 7: Pre-contact (ready for heel strike)
 ]
 
 

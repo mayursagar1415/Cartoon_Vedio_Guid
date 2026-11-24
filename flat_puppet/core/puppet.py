@@ -103,7 +103,9 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
     ua[fy0:fy1] *= (1.0 - (np.arange(fy0, fy1) - fy0) / max(fy1 - fy0, 1))[:, None]
     up.putalpha(Image.fromarray(ua.astype(np.uint8)))
     side_under = up.filter(ImageFilter.GaussianBlur(1.0))
+    # Cut cleanly right below the dhoti skirt hem so zero stray leg/toe outline pixels remain in torso
     side_torso = subtract_alpha(subtract_alpha(base_img, leg_n_full), leg_f_full)
+    side_torso = rect_part(side_torso, int(s2((0, 1732))[1]), feather=2.5)
 
     side_orig_c = load_char(root, side_cfg["orig_file"])
     sb = side_orig_c["bbox"]
@@ -112,6 +114,14 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
         return (pt[0] - sb[0], pt[1] - sb[1])
 
     side_arm_full = poly_part(side_orig_c["base"], [s_orig(p) for p in side_cfg["polygons"]["arm"]])
+    # Clear any white dhoti background pixels captured around the hand/fingers below the sleeve
+    sa_arr = np.asarray(side_arm_full).copy()
+    hand_y0 = int(s_orig(side_cfg["pivots"]["wrist"])[1])
+    rgb_h = sa_arr[hand_y0:, :, :3].astype(np.int16)
+    dhoti_leak = (rgb_h[:, :, 0] > 202) & (rgb_h[:, :, 1] > 200) & (rgb_h[:, :, 2] > 192)
+    sa_arr[hand_y0:, :, 3] = np.where(dhoti_leak, 0, sa_arr[hand_y0:, :, 3])
+    side_arm_full = Image.fromarray(sa_arr, "RGBA")
+
     side_elbow = s_orig(side_cfg["pivots"]["elbow"])
     side_arm_upper, side_arm_lower, side_arm_cap = split_limb_at_joint(
         side_arm_full, side_elbow, overlap=18, feather=2.5, cap_radius=76
