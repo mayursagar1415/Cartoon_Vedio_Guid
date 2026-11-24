@@ -1,0 +1,56 @@
+{
+  "name": "bansi",
+  "views": {
+    "side": {
+      "base_file": "assets_story/bansi_side_noarm.png",
+      "orig_file": "assets_story/bansi_side.png",
+      "hem_cut_y": 1732,
+      "pivots": {
+        "shoulder": [437, 750],
+        "elbow": [435, 1130],
+        "wrist": [428, 1540],
+        "hip_near": [565, 1755],
+        "hip_far": [405, 1755],
+        "knee_near": [550, 1935],
+        "knee_far": [345, 1935],
+        "ankle_near": [587, 2045],
+        "ankle_far": [305, 2030]
+      },
+      "polygons": {
+        "leg_near": [[460, 1730], [665, 1730], [660, 1900], [630, 2030], [700, 2090], [782, 2130], [782, 2180], [470, 2180], [450, 2000], [448, 1850]],
+        "leg_far": [[325, 1730], [485, 1730], [470, 1850], [400, 1960], [350, 2030], [438, 2090], [438, 2180], [220, 2180], [205, 2090], [265, 1950], [300, 1830]],
+        "under_flap": [[405, 1700], [630, 1700], [610, 1775], [420, 1775]],
+        "arm": [[362, 700], [515, 700], [530, 990], [510, 1440], [500, 1560], [480, 1690], [380, 1690], [355, 1560], [350, 1440], [344, 990]]
+      }
+    },
+    "front": {
+      "base_file": "assets_story/bansi_front_noarm.png",
+      "orig_file": "assets_story/bansi_front.jpg",
+      "neck_cut_y": 372,
+      "cap_radius": 32,
+      "variants": {
+        "half": "assets_story/bansi_front_mouth_half.png",
+        "open": "assets_story/bansi_front_mouth_open.png",
+        "eyes": "assets_story/bansi_front_eyes_closed.png"
+      },
+      "pivots": {
+        "head": [395, 430],
+        "arm": [474, 496],
+        "elbow": [524, 668],
+        "wrist": [592, 770]
+      },
+      "boxes": {
+        "mouth": [370, 340, 465, 405],
+        "eyes": [315, 225, 505, 325]
+      },
+      "polygons": {
+        "arm": [[460, 445], [565, 465], [560, 590], [670, 740], [670, 895], [520, 895], [498, 635], [472, 560]],
+        "sleeve_stub": [[448, 438], [556, 465], [552, 592], [496, 622], [462, 565]]
+      },
+      "offsets": {
+        "head": [0, 0],
+        "arm": [0, 0]
+      }
+    }
+  }
+}

@@ -17,6 +17,14 @@ class TestConfigValidation(unittest.TestCase):
         self.assertEqual(cfg["fps"], 25)
         self.assertGreater(cfg["duration"], 0)
 
+    def test_bansi_story_scene_loads_and_validates(self) -> None:
+        cfg = load_and_validate_scene(ROOT, ROOT / "configs" / "scenes" / "bansi_mango.json")
+        self.assertEqual(cfg["fps"], 25)
+        self.assertGreaterEqual(cfg["duration"], 10.0)
+        self.assertEqual(cfg["characters"]["gopal"]["puppet"], "bansi")
+        self.assertEqual(cfg["characters"]["tara"]["puppet"], "kavya")
+        self.assertEqual(cfg["characters"]["gulli"]["puppet"], "mitthu")
+
     def test_missing_asset_raises_clear_error(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             p = Path(td)

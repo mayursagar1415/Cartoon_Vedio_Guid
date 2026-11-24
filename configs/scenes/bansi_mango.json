@@ -1,0 +1,62 @@
+{
+  "name": "bansi_mango",
+  "fps": 25,
+  "width": 1280,
+  "height": 720,
+  "duration": 10.8,
+  "ground_y": 688,
+  "background": "assets_story/story_orchard_bg.jpg",
+  "audio": {
+    "voice": "assets_story/story_voice_mix.wav",
+    "voice_start": 0.0,
+    "subtitles_base_start": 0.0,
+    "gain_ref": "auto",
+    "bgm": "bgm-soft.wav",
+    "bgm_volume": 0.16,
+    "subtitles": "assets_story/bansi_mango.ass"
+  },
+  "camera": {
+    "enabled": true,
+    "zoom_start": 1.0,
+    "zoom_end": 1.035,
+    "zoom_t_start": 3.4,
+    "zoom_t_end": 10.6,
+    "focus_x": 0.54,
+    "focus_y": 0.54
+  },
+  "characters": {
+    "tara": {
+      "puppet": "kavya",
+      "height": 355,
+      "x": 885,
+      "voice": "assets_story/line2_kavya.wav",
+      "voice_start": 6.5,
+      "blinks": [[1.1, 1.22], [3.2, 3.32], [5.8, 5.92], [8.3, 8.42]]
+    },
+    "gulli": {
+      "puppet": "mitthu",
+      "height": 162,
+      "x": 675,
+      "hop_windows": [[10.28, 10.76]]
+    },
+    "gopal": {
+      "puppet": "bansi",
+      "leg_mode": "sprite8",
+      "skin_rgb": [215, 141, 91],
+      "side_height": 475,
+      "front_height": 485,
+      "walk_duration": 3.35,
+      "turn_half_window": 0.14,
+      "walk_action": "walk_cycle",
+      "walk_cycles_per_sec": 0.80,
+      "walk_x_start": -55,
+      "walk_x_end": 315,
+      "talk_x": 335,
+      "voice": "assets_story/line1_bansi.wav",
+      "voice_start": 3.55,
+      "gesture_action": "speak_gesture",
+      "gesture_windows": [[3.65, 5.10], [5.25, 6.35]],
+      "blinks": [[1.5, 1.62], [4.65, 4.77], [7.6, 7.72], [9.6, 9.72]]
+    }
+  }
+}

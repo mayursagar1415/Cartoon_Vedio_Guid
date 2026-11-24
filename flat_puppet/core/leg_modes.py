@@ -342,8 +342,9 @@ def render_leg_vector(
     knee_rel_ang: float,
     foot_world_ang: float,
     is_far: bool = False,
+    skin_rgb: Tuple[int, int, int] = (228, 170, 124),
 ) -> Image.Image:
-    """Option 3/4: Unified-outline procedural cartoon leg matching Gopal's bare-ankle & slim foot proportions."""
+    """Option 3/4: Unified-outline procedural cartoon leg matching bare-ankle & slim foot proportions."""
     w, h = size
     scale = 2
     sw, sh = w * scale, h * scale
@@ -382,7 +383,15 @@ def render_leg_vector(
     r_toe = 3.6 * scale
     stroke = 2.1 * scale
 
-    fill_rgb = (194, 144, 105, 255) if is_far else (228, 170, 124, 255)
+    if is_far:
+        fill_rgb = (
+            max(0, int(round(skin_rgb[0] * 0.85))),
+            max(0, int(round(skin_rgb[1] * 0.85))),
+            max(0, int(round(skin_rgb[2] * 0.85))),
+            255,
+        )
+    else:
+        fill_rgb = (*skin_rgb, 255)
     ink_rgb = (14, 12, 10, 255)
 
     def _draw_segment(a: Tuple[float, float], b: Tuple[float, float], ra: float, rb: float, pad: float, col) -> None:

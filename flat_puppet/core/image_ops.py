@@ -10,7 +10,7 @@ from typing import Iterable, Optional, Sequence, Tuple
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-BAKE_VERSION = 7
+BAKE_VERSION = 8
 
 
 def remove_white(img: Image.Image) -> Image.Image:

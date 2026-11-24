@@ -52,7 +52,12 @@ class SceneCompositor:
         self.root = root
         self.config_dir = config_dir
         self.scene = load_and_validate_scene(root, scene_path)
-        self.leg_mode: str = leg_mode_override or self.scene["characters"]["gopal"].get("leg_mode", "mesh")
+        gopal_cfg = self.scene["characters"]["gopal"]
+        tara_cfg = self.scene["characters"]["tara"]
+        self.leg_mode: str = leg_mode_override or gopal_cfg.get("leg_mode", "mesh")
+        self.hero_skin_rgb: Tuple[int, int, int] = tuple(
+            int(c) for c in gopal_cfg.get("skin_rgb", (228, 170, 124))
+        )  # type: ignore[assignment]
 
         self.fps: int = int(self.scene.get("fps", 25))
         self.width: int = int(self.scene.get("width", 1280))
@@ -84,13 +89,14 @@ class SceneCompositor:
         )
 
         audio_cfg = self.scene.get("audio", {})
-        voice_rel = audio_cfg.get("voice")
-        voice_path = (root / voice_rel) if voice_rel else None
+        hero_voice_rel = gopal_cfg.get("voice") or audio_cfg.get("voice")
+        voice_path = (root / hero_voice_rel) if hero_voice_rel else None
+        hero_voice_start = float(gopal_cfg.get("voice_start", audio_cfg.get("voice_start", 4.4)))
         rhubarb_rel = audio_cfg.get("rhubarb_json")
         rhubarb_path = (root / rhubarb_rel) if rhubarb_rel else None
         self.audio = AudioAnalyzer(
             audio_path=voice_path,
-            start_time=float(audio_cfg.get("voice_start", 4.4)),
+            start_time=hero_voice_start,
             fps=self.fps,
             cache_dir=root / ".cache",
             rhubarb_json=rhubarb_path,
@@ -104,6 +110,24 @@ class SceneCompositor:
             lvl = self.audio.mouth_level(i / self.fps, prev_level=prev_lvl)
             self._mouth_track.append(lvl)
             prev_lvl = lvl
+
+        # Optional independent lip-sync audio track for standing speaker (tara slot, e.g. Kavya)
+        tara_voice_rel = tara_cfg.get("voice")
+        self.tara_audio: Optional[AudioAnalyzer] = None
+        self._tara_mouth_track: List[int] = []
+        if tara_voice_rel:
+            self.tara_audio = AudioAnalyzer(
+                audio_path=root / tara_voice_rel,
+                start_time=float(tara_cfg.get("voice_start", 0.0)),
+                fps=self.fps,
+                cache_dir=root / ".cache",
+                gain_ref=audio_cfg.get("gain_ref", "auto"),
+            )
+            prev_tlvl: Optional[int] = None
+            for i in range(self.nframes + 2):
+                tlvl = self.tara_audio.mouth_level(i / self.fps, prev_level=prev_tlvl)
+                self._tara_mouth_track.append(tlvl)
+                prev_tlvl = tlvl
 
         chars = self.scene["characters"]
         tara_blinks = chars["tara"].get("blinks")
@@ -209,25 +233,43 @@ class SceneCompositor:
         frame = self.bg.copy()
         chars = self.scene["characters"]
 
-        # 1. Gulli (standing bird with oscillating tail)
+        # 1. Companion creature (standing animal/bird with tail wag and optional chirp hop)
         gulli_cfg = chars["gulli"]
         gx_gulli = int(gulli_cfg["x"])
         gy_gulli = self.ground_y - int(gulli_cfg["height"])
+        hop_dy = 0.0
+        tail_freq = 0.9
+        tail_amp = 7.0
+        for ha, hb in gulli_cfg.get("hop_windows", []):
+            if ha <= t <= hb and hb > ha:
+                hu = (t - ha) / (hb - ha)
+                hop_dy = -abs(math.sin(hu * math.pi * 2.0)) * 10.0
+                tail_freq = 3.2
+                tail_amp = 15.0
+                break
         tail_r, (tx_off, ty_off) = self._rot_cached(
             self.assets.gulli_tail,
-            7.0 * math.sin(t * 2.0 * math.pi * 0.9),
+            tail_amp * math.sin(t * 2.0 * math.pi * tail_freq),
             self.assets.tail_pivot,
         )
-        frame.paste(self.assets.gulli_body, (gx_gulli, gy_gulli), self.assets.gulli_body)
-        frame.paste(tail_r, (gx_gulli + tx_off, gy_gulli + ty_off), tail_r)
+        frame.paste(self.assets.gulli_body, (gx_gulli, int(gy_gulli + hop_dy)), self.assets.gulli_body)
+        frame.paste(tail_r, (gx_gulli + tx_off, int(gy_gulli + hop_dy) + ty_off), tail_r)
 
-        # 2. Tara (standing character with subtle breathing + blinks)
+        # 2. Standing character / second speaker (breathing + blinks + optional mouth lip-sync & nod)
         tara_cfg = chars["tara"]
         tara_x = int(tara_cfg["x"])
         tara_y = self.ground_y - int(tara_cfg["height"])
-        tara_img = self.assets.tara_blink if is_blinking(t, self.blinks_tara) else self.assets.tara_base
-        tara_dy = breathing_offset(t, freq=0.3, amp=1.0)
-        frame.paste(tara_img, (tara_x, int(tara_y + tara_dy)), tara_img)
+        tara_b = 1 if is_blinking(t, self.blinks_tara) else 0
+        tara_m = self._tara_mouth_track[min(i, len(self._tara_mouth_track) - 1)] if self._tara_mouth_track else 0
+        tara_img = self.assets.tara_states.get((tara_m, tara_b), self.assets.tara_base)
+        tara_env = self.tara_audio.envelope(t) if self.tara_audio else 0.0
+        tara_dy = breathing_offset(t, freq=0.3, amp=1.0) - tara_env * 2.2
+        if tara_env > 0.05:
+            tara_pivot = (tara_img.width * 0.5, tara_img.height * 0.85)
+            tara_img, (tx_o, ty_o) = self._rot_cached(tara_img, 1.4 * math.sin(t * 2.0 * math.pi * 1.1) * tara_env, tara_pivot)
+            frame.paste(tara_img, (tara_x + tx_o, int(tara_y + tara_dy) + ty_o), tara_img)
+        else:
+            frame.paste(tara_img, (tara_x, int(tara_y + tara_dy)), tara_img)
 
         # 3. Gopal (Action Library walk with hip-pinned 2-bone legs & elbow -> turn -> 2-bone IK dialogue)
         gopal_cfg = chars["gopal"]
@@ -308,6 +350,7 @@ class SceneCompositor:
                         knee_f,
                         foot_f,
                         is_far=True,
+                        skin_rgb=self.hero_skin_rgb,
                     )
                     vec_n = render_leg_vector(
                         vec_size,
@@ -318,6 +361,7 @@ class SceneCompositor:
                         knee_n,
                         foot_n,
                         is_far=False,
+                        skin_rgb=self.hero_skin_rgb,
                     )
                     target_canvas.paste(vec_f, (px, py), vec_f)
                     target_canvas.paste(vec_n, (px, py), vec_n)

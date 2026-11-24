@@ -1,0 +1,16 @@
+{
+  "name": "mitthu",
+  "views": {
+    "side": {
+      "base_file": "assets_story/mitthu_parrot.jpg",
+      "tail_poly_rel": [
+        [0.560, 0.635],
+        [0.640, 0.610],
+        [0.805, 0.855],
+        [0.785, 0.905],
+        [0.675, 0.875]
+      ],
+      "tail_pivot_rel": [0.595, 0.645]
+    }
+  }
+}

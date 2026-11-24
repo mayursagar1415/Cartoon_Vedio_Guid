@@ -36,50 +36,59 @@ def _collect_source_files(puppets_cfg: dict) -> list[str]:
     return files
 
 
-def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> AssetBaker:
-    """Bake raw character drawings into transparent, joint-split RGBA assets in assets_baked/."""
-    baker = AssetBaker(root)
-    puppets_cfg = _load_puppet_configs(config_dir)
-    source_files = _collect_source_files(puppets_cfg)
+def _is_hero_puppet(cfg: dict) -> bool:
+    views = cfg.get("views", {})
+    return "side" in views and "front" in views
 
-    required_outputs = [
-        "gopal/side_torso.png",
-        "gopal/side_under.png",
-        "gopal/side_arm_upper.png",
-        "gopal/side_arm_lower.png",
-        "gopal/side_arm_cap.png",
-        "gopal/side_legN_full.png",
-        "gopal/side_legF_full.png",
-        "gopal/side_legN_thigh.png",
-        "gopal/side_legN_calf.png",
-        "gopal/side_legN_cap.png",
-        "gopal/side_legF_thigh.png",
-        "gopal/side_legF_calf.png",
-        "gopal/side_legF_cap.png",
-        "gopal/side_meta.json",
-        "gopal/front_base.png",
-        "gopal/front_stub.png",
-        "gopal/front_meta.json",
-        "tara/base.png",
-        "tara/eyes.png",
-        "tara/meta.json",
-        "gulli/body.png",
-        "gulli/tail.png",
-        "gulli/meta.json",
-    ]
-    for m in (0, 1, 2):
-        for b in (0, 1):
-            required_outputs.append(f"gopal/front_head_m{m}_b{b}.png")
-            required_outputs.append(f"gopal/front_arm_upper_m{m}_b{b}.png")
-            required_outputs.append(f"gopal/front_arm_lower_m{m}_b{b}.png")
-            required_outputs.append(f"gopal/front_arm_cap_m{m}_b{b}.png")
 
-    if not force and baker.is_fresh(source_files, required_outputs):
-        return baker
+def _is_companion_puppet(cfg: dict) -> bool:
+    views = cfg.get("views", {})
+    return "side" in views and "tail_poly_rel" in views["side"] and "front" not in views
 
-    # 1. Bake Gopal Side (2-bone legs + 2-bone arm with circular joint caps)
-    gopal = puppets_cfg["gopal"]
-    side_cfg = gopal["views"]["side"]
+
+def _required_outputs_for_puppet(name: str, cfg: dict) -> list[str]:
+    if _is_hero_puppet(cfg):
+        outs = [
+            f"{name}/side_torso.png",
+            f"{name}/side_under.png",
+            f"{name}/side_arm_upper.png",
+            f"{name}/side_arm_lower.png",
+            f"{name}/side_arm_cap.png",
+            f"{name}/side_legN_full.png",
+            f"{name}/side_legF_full.png",
+            f"{name}/side_legN_thigh.png",
+            f"{name}/side_legN_calf.png",
+            f"{name}/side_legN_cap.png",
+            f"{name}/side_legF_thigh.png",
+            f"{name}/side_legF_calf.png",
+            f"{name}/side_legF_cap.png",
+            f"{name}/side_meta.json",
+            f"{name}/front_base.png",
+            f"{name}/front_stub.png",
+            f"{name}/front_meta.json",
+        ]
+        for m in (0, 1, 2):
+            for b in (0, 1):
+                outs.extend([
+                    f"{name}/front_head_m{m}_b{b}.png",
+                    f"{name}/front_arm_upper_m{m}_b{b}.png",
+                    f"{name}/front_arm_lower_m{m}_b{b}.png",
+                    f"{name}/front_arm_cap_m{m}_b{b}.png",
+                ])
+        return outs
+    if _is_companion_puppet(cfg):
+        return [f"{name}/body.png", f"{name}/tail.png", f"{name}/meta.json"]
+    # Standing front character (listener or second speaker)
+    outs = [f"{name}/base.png", f"{name}/eyes.png", f"{name}/meta.json"]
+    variants = cfg.get("views", {}).get("front", {}).get("variants", {})
+    for vk in ("half", "open"):
+        if vk in variants:
+            outs.append(f"{name}/mouth_{vk}.png")
+    return outs
+
+
+def _bake_hero_puppet(baker: AssetBaker, root: Path, name: str, hero_cfg: dict) -> None:
+    side_cfg = hero_cfg["views"]["side"]
     side_base_c = load_char(root, side_cfg["base_file"])
     sb2 = side_base_c["bbox"]
 
@@ -99,13 +108,16 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
     up = Image.new("RGBA", base_img.size, (0, 0, 0, 0))
     ImageDraw.Draw(up).polygon([s2(p) for p in side_cfg["polygons"]["under_flap"]], fill=(233, 230, 222, 255))
     ua = np.asarray(up.split()[3]).astype(np.float32)
-    fy0, fy1 = s2((0, 1785))[1], s2((0, 1845))[1]
-    ua[fy0:fy1] *= (1.0 - (np.arange(fy0, fy1) - fy0) / max(fy1 - fy0, 1))[:, None]
+    fy0 = max(0, min(base_img.height, s2((0, 1785))[1]))
+    fy1 = max(fy0, min(base_img.height, s2((0, 1845))[1]))
+    if fy1 > fy0:
+        ua[fy0:fy1] *= (1.0 - (np.arange(fy0, fy1) - fy0) / (fy1 - fy0))[:, None]
     up.putalpha(Image.fromarray(ua.astype(np.uint8)))
     side_under = up.filter(ImageFilter.GaussianBlur(1.0))
-    # Cut cleanly right below the dhoti skirt hem so zero stray leg/toe outline pixels remain in torso
+
+    hem_cut_y = int(side_cfg.get("hem_cut_y", 1732))
     side_torso = subtract_alpha(subtract_alpha(base_img, leg_n_full), leg_f_full)
-    side_torso = rect_part(side_torso, int(s2((0, 1732))[1]), feather=2.5)
+    side_torso = rect_part(side_torso, int(s2((0, hem_cut_y))[1]), feather=2.5)
 
     side_orig_c = load_char(root, side_cfg["orig_file"])
     sb = side_orig_c["bbox"]
@@ -114,9 +126,8 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
         return (pt[0] - sb[0], pt[1] - sb[1])
 
     side_arm_full = poly_part(side_orig_c["base"], [s_orig(p) for p in side_cfg["polygons"]["arm"]])
-    # Clear any white dhoti background pixels captured around the hand/fingers below the sleeve
     sa_arr = np.asarray(side_arm_full).copy()
-    hand_y0 = int(s_orig(side_cfg["pivots"]["wrist"])[1])
+    hand_y0 = max(0, min(sa_arr.shape[0], int(s_orig(side_cfg["pivots"]["wrist"])[1])))
     rgb_h = sa_arr[hand_y0:, :, :3].astype(np.int16)
     dhoti_leak = (rgb_h[:, :, 0] > 202) & (rgb_h[:, :, 1] > 200) & (rgb_h[:, :, 2] > 192)
     sa_arr[hand_y0:, :, 3] = np.where(dhoti_leak, 0, sa_arr[hand_y0:, :, 3])
@@ -127,21 +138,21 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
         side_arm_full, side_elbow, overlap=18, feather=2.5, cap_radius=76
     )
 
-    baker.save_image("gopal/side_torso.png", side_torso)
-    baker.save_image("gopal/side_under.png", side_under)
-    baker.save_image("gopal/side_arm_upper.png", side_arm_upper)
-    baker.save_image("gopal/side_arm_lower.png", side_arm_lower)
-    baker.save_image("gopal/side_arm_cap.png", side_arm_cap)
-    baker.save_image("gopal/side_legN_full.png", leg_n_full)
-    baker.save_image("gopal/side_legF_full.png", leg_f_full)
-    baker.save_image("gopal/side_legN_thigh.png", leg_n_thigh)
-    baker.save_image("gopal/side_legN_calf.png", leg_n_calf)
-    baker.save_image("gopal/side_legN_cap.png", leg_n_cap)
-    baker.save_image("gopal/side_legF_thigh.png", leg_f_thigh)
-    baker.save_image("gopal/side_legF_calf.png", leg_f_calf)
-    baker.save_image("gopal/side_legF_cap.png", leg_f_cap)
+    baker.save_image(f"{name}/side_torso.png", side_torso)
+    baker.save_image(f"{name}/side_under.png", side_under)
+    baker.save_image(f"{name}/side_arm_upper.png", side_arm_upper)
+    baker.save_image(f"{name}/side_arm_lower.png", side_arm_lower)
+    baker.save_image(f"{name}/side_arm_cap.png", side_arm_cap)
+    baker.save_image(f"{name}/side_legN_full.png", leg_n_full)
+    baker.save_image(f"{name}/side_legF_full.png", leg_f_full)
+    baker.save_image(f"{name}/side_legN_thigh.png", leg_n_thigh)
+    baker.save_image(f"{name}/side_legN_calf.png", leg_n_calf)
+    baker.save_image(f"{name}/side_legN_cap.png", leg_n_cap)
+    baker.save_image(f"{name}/side_legF_thigh.png", leg_f_thigh)
+    baker.save_image(f"{name}/side_legF_calf.png", leg_f_calf)
+    baker.save_image(f"{name}/side_legF_cap.png", leg_f_cap)
     baker.save_meta(
-        "gopal/side_meta.json",
+        f"{name}/side_meta.json",
         {
             "shoulder": s_orig(side_cfg["pivots"]["shoulder"]),
             "elbow": side_elbow,
@@ -156,8 +167,8 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
         },
     )
 
-    # 2. Bake Gopal Front (pre-composited head + 2-bone elbow-split arm for all mouth/blink states)
-    front_cfg = gopal["views"]["front"]
+    # Front view (pre-composited head + 2-bone elbow-split arm for all mouth/blink states)
+    front_cfg = hero_cfg["views"]["front"]
     front_base_c = load_char(root, front_cfg["base_file"])
     front_base_img = front_base_c["base"]
     cut = Image.new("L", front_base_img.size, 255)
@@ -184,9 +195,10 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
     arm_poly = [f_pt(p) for p in front_cfg["polygons"]["arm"]]
     stub_poly = [f_pt(p) for p in front_cfg["polygons"]["sleeve_stub"]]
     front_stub = poly_part(front_img, stub_poly)
+    front_cap_r = int(front_cfg.get("cap_radius", 40))
 
-    baker.save_image("gopal/front_base.png", front_base_img)
-    baker.save_image("gopal/front_stub.png", front_stub)
+    baker.save_image(f"{name}/front_base.png", front_base_img)
+    baker.save_image(f"{name}/front_stub.png", front_stub)
     for m in (0, 1, 2):
         for b in (0, 1):
             img = front_img
@@ -196,17 +208,17 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
                 img = patch(img, front["open"], mouth_box)
             if b:
                 img = patch(img, front["eyes"], eye_box)
-            baker.save_image(f"gopal/front_head_m{m}_b{b}.png", rect_part(img, int(head_p[1])))
+            baker.save_image(f"{name}/front_head_m{m}_b{b}.png", rect_part(img, int(head_p[1])))
             arm_full = poly_part(img, arm_poly)
             arm_upper, arm_lower, arm_cap = split_limb_at_joint(
-                arm_full, front_elbow_p, overlap=14, feather=2.5, cap_radius=40
+                arm_full, front_elbow_p, overlap=14, feather=2.5, cap_radius=front_cap_r
             )
-            baker.save_image(f"gopal/front_arm_upper_m{m}_b{b}.png", arm_upper)
-            baker.save_image(f"gopal/front_arm_lower_m{m}_b{b}.png", arm_lower)
-            baker.save_image(f"gopal/front_arm_cap_m{m}_b{b}.png", arm_cap)
+            baker.save_image(f"{name}/front_arm_upper_m{m}_b{b}.png", arm_upper)
+            baker.save_image(f"{name}/front_arm_lower_m{m}_b{b}.png", arm_lower)
+            baker.save_image(f"{name}/front_arm_cap_m{m}_b{b}.png", arm_cap)
 
     baker.save_meta(
-        "gopal/front_meta.json",
+        f"{name}/front_meta.json",
         {
             "head_pivot": list(head_p),
             "arm_pivot": list(arm_p),
@@ -218,40 +230,77 @@ def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> Asset
         },
     )
 
-    # 3. Bake Tara
-    tara_cfg = puppets_cfg["tara"]["views"]["front"]
-    tara_full = clear_big_white_components(
-        remove_white(Image.open(root / tara_cfg["base_file"])),
-        protect_box=tara_cfg["protect_box"],
+
+def _bake_standing_puppet(baker: AssetBaker, root: Path, name: str, char_cfg: dict) -> None:
+    front_cfg = char_cfg["views"]["front"]
+    full = clear_big_white_components(
+        remove_white(Image.open(root / front_cfg["base_file"])),
+        protect_box=front_cfg.get("protect_box"),
     )
-    tara_eyes_full = remove_white(Image.open(root / tara_cfg["eyes_file"]))
-    tara_eyes_full.putalpha(tara_full.split()[3])
-    tb = tara_full.split()[3].point(lambda p: 255 if p > 20 else 0).getbbox()
+    alpha_ch = full.split()[3]
+    tb = alpha_ch.point(lambda p: 255 if p > 20 else 0).getbbox()
 
     def t_pt(pt):
         return (pt[0] - tb[0], pt[1] - tb[1])
 
-    eye_box_t = (*t_pt(tara_cfg["boxes"]["eyes"][:2]), *t_pt(tara_cfg["boxes"]["eyes"][2:]))
-    baker.save_image("tara/base.png", tara_full.crop(tb))
-    baker.save_image("tara/eyes.png", tara_eyes_full.crop(tb))
-    baker.save_meta("tara/meta.json", {"eye_box": list(eye_box_t)})
+    eyes_full = remove_white(Image.open(root / front_cfg["eyes_file"]))
+    eyes_full.putalpha(alpha_ch)
+    eye_box = (*t_pt(front_cfg["boxes"]["eyes"][:2]), *t_pt(front_cfg["boxes"]["eyes"][2:]))
+    baker.save_image(f"{name}/base.png", full.crop(tb))
+    baker.save_image(f"{name}/eyes.png", eyes_full.crop(tb))
 
-    # 4. Bake Gulli
-    gulli_cfg = puppets_cfg["gulli"]["views"]["side"]
-    gulli_c = load_char(root, gulli_cfg["base_file"])
-    gb = gulli_c["bbox"]
-    gw, gh = Image.open(root / gulli_cfg["base_file"]).size
+    meta: dict = {"eye_box": list(eye_box)}
+    variants = front_cfg.get("variants", {})
+    if "mouth" in front_cfg["boxes"]:
+        meta["mouth_box"] = [*t_pt(front_cfg["boxes"]["mouth"][:2]), *t_pt(front_cfg["boxes"]["mouth"][2:])]
+    for vk in ("half", "open"):
+        if vk in variants:
+            m_im = remove_white(Image.open(root / variants[vk]))
+            m_im.putalpha(alpha_ch)
+            baker.save_image(f"{name}/mouth_{vk}.png", m_im.crop(tb))
 
-    def g_pt(pt):
-        return (pt[0] - gb[0], pt[1] - gb[1])
+    baker.save_meta(f"{name}/meta.json", meta)
 
-    tail_poly = [g_pt((int(rx * gw), int(ry * gh))) for rx, ry in gulli_cfg["tail_poly_rel"]]
-    tail_p = g_pt((int(gulli_cfg["tail_pivot_rel"][0] * gw), int(gulli_cfg["tail_pivot_rel"][1] * gh)))
-    gulli_tail = poly_part(gulli_c["base"], tail_poly)
-    gulli_body = subtract_alpha(gulli_c["base"], gulli_tail)
-    baker.save_image("gulli/body.png", gulli_body)
-    baker.save_image("gulli/tail.png", gulli_tail)
-    baker.save_meta("gulli/meta.json", {"tail_pivot": list(tail_p)})
+
+def _bake_companion_puppet(baker: AssetBaker, root: Path, name: str, char_cfg: dict) -> None:
+    side_cfg = char_cfg["views"]["side"]
+    c = load_char(root, side_cfg["base_file"])
+    cb = c["bbox"]
+    with Image.open(root / side_cfg["base_file"]) as orig:
+        gw, gh = orig.size
+
+    def c_pt(pt):
+        return (pt[0] - cb[0], pt[1] - cb[1])
+
+    tail_poly = [c_pt((int(rx * gw), int(ry * gh))) for rx, ry in side_cfg["tail_poly_rel"]]
+    tail_p = c_pt((int(side_cfg["tail_pivot_rel"][0] * gw), int(side_cfg["tail_pivot_rel"][1] * gh)))
+    tail = poly_part(c["base"], tail_poly)
+    body = subtract_alpha(c["base"], tail)
+    baker.save_image(f"{name}/body.png", body)
+    baker.save_image(f"{name}/tail.png", tail)
+    baker.save_meta(f"{name}/meta.json", {"tail_pivot": list(tail_p)})
+
+
+def bake_all_puppets(root: Path, config_dir: Path, force: bool = False) -> AssetBaker:
+    """Bake raw character drawings into transparent, joint-split RGBA assets in assets_baked/."""
+    baker = AssetBaker(root)
+    puppets_cfg = _load_puppet_configs(config_dir)
+    source_files = _collect_source_files(puppets_cfg)
+
+    required_outputs: list[str] = []
+    for name, cfg in puppets_cfg.items():
+        required_outputs.extend(_required_outputs_for_puppet(name, cfg))
+
+    if not force and baker.is_fresh(source_files, required_outputs):
+        return baker
+
+    for name, cfg in puppets_cfg.items():
+        if _is_hero_puppet(cfg):
+            _bake_hero_puppet(baker, root, name, cfg)
+        elif _is_companion_puppet(cfg):
+            _bake_companion_puppet(baker, root, name, cfg)
+        else:
+            _bake_standing_puppet(baker, root, name, cfg)
 
     baker.commit_manifest(source_files)
     return baker
@@ -273,43 +322,70 @@ class ScaledAssets:
         baker = bake_all_puppets(root, config_dir, force=False)
         chars_cfg = scene_cfg["characters"]
 
-        # Tara
-        tara_h = chars_cfg["tara"]["height"]
-        tara_meta = baker.load_meta("tara/meta.json")
-        self.tara_base, tara_s = scaled(baker.load_image("tara/base.png"), tara_h)
-        self.tara_eyes_full, _ = scaled(baker.load_image("tara/eyes.png"), tara_h)
+        # Standing character / listener (tara slot -> e.g. 'tara' or 'kavya')
+        tara_cfg = chars_cfg["tara"]
+        tara_name = tara_cfg.get("puppet", "tara")
+        tara_h = tara_cfg["height"]
+        tara_meta = baker.load_meta(f"{tara_name}/meta.json")
+        self.tara_base, tara_s = scaled(baker.load_image(f"{tara_name}/base.png"), tara_h)
+        self.tara_eyes_full, _ = scaled(baker.load_image(f"{tara_name}/eyes.png"), tara_h)
         t_eye_box = tuple(int(v * tara_s) for v in tara_meta["eye_box"])
         self.tara_blink = patch(self.tara_base, self.tara_eyes_full, t_eye_box)
 
-        # Gulli
-        gulli_h = chars_cfg["gulli"]["height"]
-        gulli_meta = baker.load_meta("gulli/meta.json")
-        self.gulli_body, gs = scaled(baker.load_image("gulli/body.png"), gulli_h)
-        self.gulli_tail, _ = scaled(baker.load_image("gulli/tail.png"), gulli_h)
+        self.tara_states: Dict[Tuple[int, int], Image.Image] = {
+            (0, 0): self.tara_base,
+            (0, 1): self.tara_blink,
+        }
+        if "mouth_box" in tara_meta:
+            t_mouth_box = tuple(int(v * tara_s) for v in tara_meta["mouth_box"])
+            for lvl, vk in ((1, "half"), (2, "open")):
+                rel_p = f"{tara_name}/mouth_{vk}.png"
+                if (baker.baked_dir / rel_p).is_file():
+                    m_full, _ = scaled(baker.load_image(rel_p), tara_h)
+                    m_img = patch(self.tara_base, m_full, t_mouth_box, feather=6)
+                    self.tara_states[(lvl, 0)] = m_img
+                    self.tara_states[(lvl, 1)] = patch(m_img, self.tara_eyes_full, t_eye_box)
+                else:
+                    self.tara_states[(lvl, 0)] = self.tara_base
+                    self.tara_states[(lvl, 1)] = self.tara_blink
+        else:
+            for lvl in (1, 2):
+                self.tara_states[(lvl, 0)] = self.tara_base
+                self.tara_states[(lvl, 1)] = self.tara_blink
+
+        # Companion creature (gulli slot -> e.g. 'gulli' or 'mitthu')
+        gulli_cfg = chars_cfg["gulli"]
+        gulli_name = gulli_cfg.get("puppet", "gulli")
+        gulli_h = gulli_cfg["height"]
+        gulli_meta = baker.load_meta(f"{gulli_name}/meta.json")
+        self.gulli_body, gs = scaled(baker.load_image(f"{gulli_name}/body.png"), gulli_h)
+        self.gulli_tail, _ = scaled(baker.load_image(f"{gulli_name}/tail.png"), gulli_h)
         self.tail_pivot: Tuple[float, float] = (
             gulli_meta["tail_pivot"][0] * gs,
             gulli_meta["tail_pivot"][1] * gs,
         )
 
-        # Gopal Side (2-bone legs + 2-bone arm)
-        side_h = chars_cfg["gopal"]["side_height"]
-        side_meta = baker.load_meta("gopal/side_meta.json")
+        # Hero character (gopal slot -> e.g. 'gopal' or 'bansi')
+        hero_cfg = chars_cfg["gopal"]
+        hero_name = hero_cfg.get("puppet", "gopal")
+        side_h = hero_cfg["side_height"]
+        side_meta = baker.load_meta(f"{hero_name}/side_meta.json")
         self.side_parts: Dict[str, Image.Image] = {}
         ss = 1.0
         for name, file_key in [
-            ("arm_upper", "gopal/side_arm_upper.png"),
-            ("arm_lower", "gopal/side_arm_lower.png"),
-            ("arm_cap", "gopal/side_arm_cap.png"),
-            ("legN_full", "gopal/side_legN_full.png"),
-            ("legF_full", "gopal/side_legF_full.png"),
-            ("legN_thigh", "gopal/side_legN_thigh.png"),
-            ("legN_calf", "gopal/side_legN_calf.png"),
-            ("legN_cap", "gopal/side_legN_cap.png"),
-            ("legF_thigh", "gopal/side_legF_thigh.png"),
-            ("legF_calf", "gopal/side_legF_calf.png"),
-            ("legF_cap", "gopal/side_legF_cap.png"),
-            ("torso", "gopal/side_torso.png"),
-            ("under", "gopal/side_under.png"),
+            ("arm_upper", f"{hero_name}/side_arm_upper.png"),
+            ("arm_lower", f"{hero_name}/side_arm_lower.png"),
+            ("arm_cap", f"{hero_name}/side_arm_cap.png"),
+            ("legN_full", f"{hero_name}/side_legN_full.png"),
+            ("legF_full", f"{hero_name}/side_legF_full.png"),
+            ("legN_thigh", f"{hero_name}/side_legN_thigh.png"),
+            ("legN_calf", f"{hero_name}/side_legN_calf.png"),
+            ("legN_cap", f"{hero_name}/side_legN_cap.png"),
+            ("legF_thigh", f"{hero_name}/side_legF_thigh.png"),
+            ("legF_calf", f"{hero_name}/side_legF_calf.png"),
+            ("legF_cap", f"{hero_name}/side_legF_cap.png"),
+            ("torso", f"{hero_name}/side_torso.png"),
+            ("under", f"{hero_name}/side_under.png"),
         ]:
             self.side_parts[name], ss = scaled(baker.load_image(file_key), side_h)
 
@@ -323,11 +399,10 @@ class ScaledAssets:
         self.legf_ankle = (side_meta["ankle_far"][0] * ss, side_meta["ankle_far"][1] * ss)
         self.arm_side_off = (side_meta["arm_offset"][0] * ss, side_meta["arm_offset"][1] * ss)
 
-        # Gopal Front (2-bone IK arm + head)
-        front_h = chars_cfg["gopal"]["front_height"]
-        front_meta = baker.load_meta("gopal/front_meta.json")
-        self.front_base, _ = scaled(baker.load_image("gopal/front_base.png"), front_h)
-        self.front_stub, _ = scaled(baker.load_image("gopal/front_stub.png"), front_h)
+        front_h = hero_cfg["front_height"]
+        front_meta = baker.load_meta(f"{hero_name}/front_meta.json")
+        self.front_base, _ = scaled(baker.load_image(f"{hero_name}/front_base.png"), front_h)
+        self.front_stub, _ = scaled(baker.load_image(f"{hero_name}/front_stub.png"), front_h)
         front_s = front_h / front_meta["orig_height"]
         self.head_pivot = (front_meta["head_pivot"][0] * front_s, front_meta["head_pivot"][1] * front_s)
         self.arm_pivot = (front_meta["arm_pivot"][0] * front_s, front_meta["arm_pivot"][1] * front_s)
@@ -339,8 +414,8 @@ class ScaledAssets:
         self.front_states: Dict[Tuple[int, int], Tuple[Image.Image, Image.Image, Image.Image, Image.Image]] = {}
         for m in (0, 1, 2):
             for b in (0, 1):
-                hs, _ = scaled(baker.load_image(f"gopal/front_head_m{m}_b{b}.png"), front_h)
-                au, _ = scaled(baker.load_image(f"gopal/front_arm_upper_m{m}_b{b}.png"), front_h)
-                al, _ = scaled(baker.load_image(f"gopal/front_arm_lower_m{m}_b{b}.png"), front_h)
-                ac, _ = scaled(baker.load_image(f"gopal/front_arm_cap_m{m}_b{b}.png"), front_h)
+                hs, _ = scaled(baker.load_image(f"{hero_name}/front_head_m{m}_b{b}.png"), front_h)
+                au, _ = scaled(baker.load_image(f"{hero_name}/front_arm_upper_m{m}_b{b}.png"), front_h)
+                al, _ = scaled(baker.load_image(f"{hero_name}/front_arm_lower_m{m}_b{b}.png"), front_h)
+                ac, _ = scaled(baker.load_image(f"{hero_name}/front_arm_cap_m{m}_b{b}.png"), front_h)
                 self.front_states[(m, b)] = (hs, au, al, ac)
