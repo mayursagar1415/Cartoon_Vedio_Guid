@@ -22,10 +22,8 @@ from flat_puppet.core.kinematics import (
     turn_transition_scale,
 )
 from flat_puppet.core.leg_modes import (
-    CapsuleLegRig,
     compute_sprite8_pose,
     compute_walk_angles,
-    render_leg_mesh,
     render_leg_vector,
 )
 from flat_puppet.core.puppet import ScaledAssets
@@ -54,7 +52,7 @@ class SceneCompositor:
         self.scene = load_and_validate_scene(root, scene_path)
         gopal_cfg = self.scene["characters"]["gopal"]
         tara_cfg = self.scene["characters"]["tara"]
-        self.leg_mode: str = leg_mode_override or gopal_cfg.get("leg_mode", "mesh")
+        self.leg_mode: str = leg_mode_override or gopal_cfg.get("leg_mode", "sprite8")
         self.hero_skin_rgb: Tuple[int, int, int] = tuple(
             int(c) for c in gopal_cfg.get("skin_rgb", (228, 170, 124))
         )  # type: ignore[assignment]
@@ -73,20 +71,6 @@ class SceneCompositor:
         self.assets = ScaledAssets(root, config_dir, self.scene)
         self.actions = ActionLibrary(config_dir / "actions")
         self._rot_cache: Dict[Tuple[int, float, Tuple[float, float]], Tuple[Image.Image, Tuple[int, int]]] = {}
-        self.capsule_leg_n = CapsuleLegRig(
-            self.assets.side_parts["legN_full"],
-            self.assets.legn_hip,
-            self.assets.legn_knee,
-            self.assets.legn_ankle,
-            is_far=False,
-        )
-        self.capsule_leg_f = CapsuleLegRig(
-            self.assets.side_parts["legF_full"],
-            self.assets.legf_hip,
-            self.assets.legf_knee,
-            self.assets.legf_ankle,
-            is_far=True,
-        )
 
         audio_cfg = self.scene.get("audio", {})
         hero_voice_rel = gopal_cfg.get("voice") or audio_cfg.get("voice")
@@ -290,20 +274,13 @@ class SceneCompositor:
             cyc_opp = (cyc + 0.5) % 1.0
 
             dhoti_tilt = 0.0
-            if self.leg_mode == "cut":
-                ang_n = walk_clip.eval_normalized("leg_near_thigh", cyc)
-                knee_n = walk_clip.eval_normalized("leg_near_knee", cyc)
-                ang_f = walk_clip.eval_normalized("leg_near_thigh", cyc_opp)
-                knee_f = walk_clip.eval_normalized("leg_near_knee", cyc_opp)
-                foot_n = foot_f = 0.0
-                bob = walk_clip.eval_normalized("body_bob", cyc)
-            elif self.leg_mode == "sprite8":
-                ang_n, knee_n, foot_n, bob, dhoti_tilt = compute_sprite8_pose(cyc)
-                ang_f, knee_f, foot_f, _, _ = compute_sprite8_pose(cyc_opp)
-            else:
+            if self.leg_mode == "vector":
                 ang_n, knee_n, foot_n = compute_walk_angles(cyc)
                 ang_f, knee_f, foot_f = compute_walk_angles(cyc_opp)
                 bob = walk_clip.eval_normalized("body_bob", cyc)
+            else:
+                ang_n, knee_n, foot_n, bob, dhoti_tilt = compute_sprite8_pose(cyc)
+                ang_f, knee_f, foot_f, _, _ = compute_sprite8_pose(cyc_opp)
 
             sh_ang = walk_clip.eval_normalized("arm_swing_shoulder", cyc)
             el_ang = walk_clip.eval_normalized("arm_swing_elbow", cyc)
@@ -314,83 +291,33 @@ class SceneCompositor:
             arm_y_off = int(self.assets.arm_side_off[1])
 
             def _draw_legs(target_canvas: Image.Image, px: int, py: int) -> None:
-                if self.leg_mode == "mesh":
-                    leg_f_img, (fx_off, fy_off) = render_leg_mesh(
-                        self.assets.side_parts["legF_full"],
-                        self.assets.legf_hip,
-                        self.assets.legf_knee,
-                        self.assets.legf_ankle,
-                        ang_f,
-                        knee_f,
-                        foot_f,
-                    )
-                    leg_n_img, (nx_off, ny_off) = render_leg_mesh(
-                        self.assets.side_parts["legN_full"],
-                        self.assets.legn_hip,
-                        self.assets.legn_knee,
-                        self.assets.legn_ankle,
-                        ang_n,
-                        knee_n,
-                        foot_n,
-                    )
-                    target_canvas.paste(leg_f_img, (px + fx_off, py + fy_off), leg_f_img)
-                    target_canvas.paste(leg_n_img, (px + nx_off, py + ny_off), leg_n_img)
-                elif self.leg_mode == "capsule":
-                    self.capsule_leg_f.render(target_canvas, self._rot_cached, px, py, ang_f, knee_f, foot_f)
-                    self.capsule_leg_n.render(target_canvas, self._rot_cached, px, py, ang_n, knee_n, foot_n)
-                elif self.leg_mode in ("vector", "sprite8"):
-                    vec_size = self.assets.side_parts["torso"].size
-                    # Align far ankle height with near ankle so both feet touch the exact ground plane
-                    far_ankle_aligned = (self.assets.legf_ankle[0], self.assets.legn_ankle[1])
-                    vec_f = render_leg_vector(
-                        vec_size,
-                        self.assets.legf_hip,
-                        self.assets.legf_knee,
-                        far_ankle_aligned,
-                        ang_f,
-                        knee_f,
-                        foot_f,
-                        is_far=True,
-                        skin_rgb=self.hero_skin_rgb,
-                    )
-                    vec_n = render_leg_vector(
-                        vec_size,
-                        self.assets.legn_hip,
-                        self.assets.legn_knee,
-                        self.assets.legn_ankle,
-                        ang_n,
-                        knee_n,
-                        foot_n,
-                        is_far=False,
-                        skin_rgb=self.hero_skin_rgb,
-                    )
-                    target_canvas.paste(vec_f, (px, py), vec_f)
-                    target_canvas.paste(vec_n, (px, py), vec_n)
-                else:
-                    self._paste_2bone_limb(
-                        target_canvas,
-                        self.assets.side_parts["legF_thigh"],
-                        self.assets.side_parts["legF_calf"],
-                        self.assets.side_parts["legF_cap"],
-                        self.assets.legf_hip,
-                        self.assets.legf_knee,
-                        ang_f,
-                        knee_f,
-                        px,
-                        py,
-                    )
-                    self._paste_2bone_limb(
-                        target_canvas,
-                        self.assets.side_parts["legN_thigh"],
-                        self.assets.side_parts["legN_calf"],
-                        self.assets.side_parts["legN_cap"],
-                        self.assets.legn_hip,
-                        self.assets.legn_knee,
-                        ang_n,
-                        knee_n,
-                        px,
-                        py,
-                    )
+                vec_size = self.assets.side_parts["torso"].size
+                # Align far ankle height with near ankle so both feet touch the exact ground plane
+                far_ankle_aligned = (self.assets.legf_ankle[0], self.assets.legn_ankle[1])
+                vec_f = render_leg_vector(
+                    vec_size,
+                    self.assets.legf_hip,
+                    self.assets.legf_knee,
+                    far_ankle_aligned,
+                    ang_f,
+                    knee_f,
+                    foot_f,
+                    is_far=True,
+                    skin_rgb=self.hero_skin_rgb,
+                )
+                vec_n = render_leg_vector(
+                    vec_size,
+                    self.assets.legn_hip,
+                    self.assets.legn_knee,
+                    self.assets.legn_ankle,
+                    ang_n,
+                    knee_n,
+                    foot_n,
+                    is_far=False,
+                    skin_rgb=self.hero_skin_rgb,
+                )
+                target_canvas.paste(vec_f, (px, py), vec_f)
+                target_canvas.paste(vec_n, (px, py), vec_n)
 
             torso_img = self.assets.side_parts["torso"]
             torso_ox, torso_oy = 0, 0

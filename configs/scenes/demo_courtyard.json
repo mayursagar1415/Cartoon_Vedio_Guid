@@ -35,6 +35,7 @@
       "x": 625
     },
     "gopal": {
+      "leg_mode": "sprite8",
       "side_height": 470,
       "front_height": 480,
       "walk_duration": 4.2,

@@ -1,11 +1,11 @@
-"""Tests for 2-bone IK solver, walk cycle continuity, and Action Library playback."""
+"""Tests for 2-bone IK solver, Option 4 sprite8 walk cycle continuity, and Action Library playback."""
 
-import math
 from pathlib import Path
 import unittest
 
 from flat_puppet.core.actions import ActionLibrary
-from flat_puppet.core.kinematics import articulated_leg_pose, rotate_point_pil, solve_2bone_ik
+from flat_puppet.core.kinematics import rotate_point_pil, solve_2bone_ik
+from flat_puppet.core.leg_modes import compute_sprite8_pose
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -20,7 +20,6 @@ class TestKinematicsAndActions(unittest.TestCase):
 
         upper_ang, lower_rel = solve_2bone_ik(root, elbow_rest, wrist_rest, target, bend_sign=1)
         new_elbow = rotate_point_pil(elbow_rest, root, upper_ang)
-        # Rotate wrist around original elbow by total angle, then translate by elbow delta
         rotated_wrist = rotate_point_pil(wrist_rest, elbow_rest, upper_ang + lower_rel)
         dx = new_elbow[0] - elbow_rest[0]
         dy = new_elbow[1] - elbow_rest[1]
@@ -39,8 +38,10 @@ class TestKinematicsAndActions(unittest.TestCase):
         )
         self.assertLess(walk.eval_normalized("leg_near_knee", 0.775), -10.0)
 
-    def test_articulated_leg_pose_continuity(self) -> None:
-        a0, _, l0 = articulated_leg_pose(0.5499)
-        a1, _, l1 = articulated_leg_pose(0.5501)
-        self.assertAlmostEqual(a0, a1, delta=0.1)
-        self.assertAlmostEqual(l0, l1, delta=0.2)
+    def test_sprite8_walk_pose_continuity(self) -> None:
+        p_end = compute_sprite8_pose(0.9999)
+        p_start = compute_sprite8_pose(0.0)
+        for v_end, v_start in zip(p_end, p_start):
+            self.assertAlmostEqual(v_end, v_start, delta=0.15)
+        # Swing passing pose (~0.70) has deep natural knee flexion (-30 deg)
+        self.assertLess(compute_sprite8_pose(0.70)[1], -20.0)

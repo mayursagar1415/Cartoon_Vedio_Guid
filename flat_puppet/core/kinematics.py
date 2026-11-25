@@ -99,36 +99,6 @@ def solve_2bone_ik(
     return upper_pil, lower_rel_pil
 
 
-def articulated_leg_pose(
-    u: float,
-    step_amp: float = 15.0,
-    knee_bend: float = 14.0,
-    lift_amp: float = 11.0,
-) -> Tuple[float, float, float]:
-    """2-bone walk cycle fallback for one leg, u in [0, 1)."""
-    if u < 0.55:
-        thigh_ang = step_amp * (1.0 - 2.0 * (u / 0.55))
-        toe_off = max(0.0, (u - 0.45) / 0.10)
-        return thigh_ang, -6.0 * toe_off, 0.0
-
-    v = (u - 0.55) / 0.45
-    thigh_ang = -step_amp + 2.0 * step_amp * ease(v)
-    knee_ang = -knee_bend * math.sin(math.pi * v)
-    lift = lift_amp * math.sin(math.pi * v)
-    return thigh_ang, knee_ang, lift
-
-
-def gesture_angle(t: float, windows: Sequence[Tuple[float, float]], max_angle: float = 28.0) -> float:
-    """Smooth arm raise during dialogue emphasis windows."""
-    ang = 0.0
-    for a, b in windows:
-        if a <= t <= b and b > a:
-            u = (t - a) / (b - a)
-            val = max_angle * math.sin(math.pi * ease(min(u * 1.15, 1.0))) if u < 1.0 else 0.0
-            ang = max(ang, val)
-    return ang
-
-
 def turn_transition_scale(t: float, switch_t: float, half_window: float = 0.14) -> float:
     """Horizontal squash scale around a side-to-front view switch for smooth turn illusion."""
     dt = abs(t - switch_t)

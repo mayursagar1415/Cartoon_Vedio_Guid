@@ -12,7 +12,6 @@ from PIL import Image, ImageDraw, ImageFilter
 from flat_puppet.core.image_ops import (
     AssetBaker,
     clear_big_white_components,
-    darken,
     load_char,
     patch,
     poly_part,
@@ -54,14 +53,6 @@ def _required_outputs_for_puppet(name: str, cfg: dict) -> list[str]:
             f"{name}/side_arm_upper.png",
             f"{name}/side_arm_lower.png",
             f"{name}/side_arm_cap.png",
-            f"{name}/side_legN_full.png",
-            f"{name}/side_legF_full.png",
-            f"{name}/side_legN_thigh.png",
-            f"{name}/side_legN_calf.png",
-            f"{name}/side_legN_cap.png",
-            f"{name}/side_legF_thigh.png",
-            f"{name}/side_legF_calf.png",
-            f"{name}/side_legF_cap.png",
             f"{name}/side_meta.json",
             f"{name}/front_base.png",
             f"{name}/front_stub.png",
@@ -97,12 +88,9 @@ def _bake_hero_puppet(baker: AssetBaker, root: Path, name: str, hero_cfg: dict) 
 
     base_img = side_base_c["base"]
     leg_n_full = poly_part(base_img, [s2(p) for p in side_cfg["polygons"]["leg_near"]])
-    leg_f_full = darken(poly_part(base_img, [s2(p) for p in side_cfg["polygons"]["leg_far"]]), 0.85)
-
+    leg_f_full = poly_part(base_img, [s2(p) for p in side_cfg["polygons"]["leg_far"]])
     knee_n = s2(side_cfg["pivots"]["knee_near"])
     knee_f = s2(side_cfg["pivots"]["knee_far"])
-    leg_n_thigh, leg_n_calf, leg_n_cap = split_limb_at_joint(leg_n_full, knee_n, overlap=16, feather=2.5, cap_radius=54)
-    leg_f_thigh, leg_f_calf, leg_f_cap = split_limb_at_joint(leg_f_full, knee_f, overlap=16, feather=2.5, cap_radius=48)
 
     # Dhoti back-flap between legs
     up = Image.new("RGBA", base_img.size, (0, 0, 0, 0))
@@ -143,14 +131,6 @@ def _bake_hero_puppet(baker: AssetBaker, root: Path, name: str, hero_cfg: dict) 
     baker.save_image(f"{name}/side_arm_upper.png", side_arm_upper)
     baker.save_image(f"{name}/side_arm_lower.png", side_arm_lower)
     baker.save_image(f"{name}/side_arm_cap.png", side_arm_cap)
-    baker.save_image(f"{name}/side_legN_full.png", leg_n_full)
-    baker.save_image(f"{name}/side_legF_full.png", leg_f_full)
-    baker.save_image(f"{name}/side_legN_thigh.png", leg_n_thigh)
-    baker.save_image(f"{name}/side_legN_calf.png", leg_n_calf)
-    baker.save_image(f"{name}/side_legN_cap.png", leg_n_cap)
-    baker.save_image(f"{name}/side_legF_thigh.png", leg_f_thigh)
-    baker.save_image(f"{name}/side_legF_calf.png", leg_f_calf)
-    baker.save_image(f"{name}/side_legF_cap.png", leg_f_cap)
     baker.save_meta(
         f"{name}/side_meta.json",
         {
@@ -376,14 +356,6 @@ class ScaledAssets:
             ("arm_upper", f"{hero_name}/side_arm_upper.png"),
             ("arm_lower", f"{hero_name}/side_arm_lower.png"),
             ("arm_cap", f"{hero_name}/side_arm_cap.png"),
-            ("legN_full", f"{hero_name}/side_legN_full.png"),
-            ("legF_full", f"{hero_name}/side_legF_full.png"),
-            ("legN_thigh", f"{hero_name}/side_legN_thigh.png"),
-            ("legN_calf", f"{hero_name}/side_legN_calf.png"),
-            ("legN_cap", f"{hero_name}/side_legN_cap.png"),
-            ("legF_thigh", f"{hero_name}/side_legF_thigh.png"),
-            ("legF_calf", f"{hero_name}/side_legF_calf.png"),
-            ("legF_cap", f"{hero_name}/side_legF_cap.png"),
             ("torso", f"{hero_name}/side_torso.png"),
             ("under", f"{hero_name}/side_under.png"),
         ]:

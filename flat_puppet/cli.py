@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     # 'test' command (backwards-compatible)
     p_test = sub.add_parser("test", help="Render 3 diagnostic test pose frames")
     p_test.add_argument("--scene", default="configs/scenes/demo_courtyard.json", help="Scene JSON path")
-    p_test.add_argument("--leg-mode", default=None, help="Override walking leg mode (cut/mesh/capsule/vector/sprite8)")
+    p_test.add_argument("--leg-mode", default=None, help="Override walking leg mode (sprite8/vector)")
 
     # 'bake' command
     p_bake = sub.add_parser("bake", help="Pre-bake transparent character cutouts into assets_baked/")
@@ -35,7 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_render.add_argument("--scene", default="configs/scenes/demo_courtyard.json", help="Scene JSON path")
     p_render.add_argument("--out", default="frames", help="Output frames directory")
     p_render.add_argument("--workers", type=int, default=None, help="Parallel worker processes")
-    p_render.add_argument("--leg-mode", default=None, help="Override walking leg mode (cut/mesh/capsule/vector/sprite8)")
+    p_render.add_argument("--leg-mode", default=None, help="Override walking leg mode (sprite8/vector)")
 
     # 'encode' command
     p_encode = sub.add_parser("encode", help="Render and stream straight into FFmpeg to produce MP4")
@@ -45,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_encode.add_argument("--save-frames", action="store_true", help="Also write PNG frames to frames/")
     p_encode.add_argument("--no-audio", action="store_true", help="Skip voice and BGM tracks")
     p_encode.add_argument("--no-subs", action="store_true", help="Skip subtitle burn-in")
-    p_encode.add_argument("--leg-mode", default=None, help="Override walking leg mode (cut/mesh/capsule/vector/sprite8)")
+    p_encode.add_argument("--leg-mode", default=None, help="Override walking leg mode (sprite8/vector)")
     p_encode.add_argument("--duration", type=float, default=None, help="Trim output duration in seconds")
 
     # 'story' command (compact multi-shot Story Script -> TTS + ASS + incremental 30-min MP4)

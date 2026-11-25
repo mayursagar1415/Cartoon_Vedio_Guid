@@ -1,7 +1,7 @@
 # Flat Puppet Studio — 2D Kahani Character Animator
 
 A modular Python animation engine for flat 2D cutout characters (*AutoDraft-style* kahani videos):
-characters are assembled from clean, armless torso bases and separately articulated parts (head, arm, 2-bone thigh + calf legs), animated with procedural kinematics, smoothed audio lip-sync, subtle camera framing, and direct FFmpeg pipe encoding.
+characters are assembled from clean, armless torso bases, 2-bone IK arms, and Option 4 (`sprite8`) unified-outline walk legs, animated with Action Library tracks, smoothed audio lip-sync, subtle camera framing, and direct FFmpeg pipe encoding.
 
 ## Quick Start
 
@@ -41,6 +41,8 @@ See **[Rule.md](Rule.md)** for the complete production rulebook covering charact
 ## Architecture
 
 - **`flat_puppet/core/image_ops.py`** — White-keying, polygon extraction, joint splitting, and hash-validated `AssetBaker` caching in `assets_baked/`.
+- **`flat_puppet/core/actions.py` & `configs/actions/*.json`** — Keyframed Action Library (`walk_cycle`, `speak_gesture`) with selectable easing curves.
+- **`flat_puppet/core/config.py`** — Strict scene JSON & ASS subtitle timing validator.
 - **`flat_puppet/core/leg_modes.py`** — Option 4 (`sprite8`) 8-pose heel-to-toe studio walk strip & `render_leg_vector()` unified-outline leg renderer.
 - **`flat_puppet/core/kinematics.py`** — Analytical 2-bone IK solver (`solve_2bone_ik`), turn squash transitions, procedural blinks, and breathing idle motion.
 - **`flat_puppet/core/audio.py`** — Asymmetric attack/release RMS envelope smoothing with hysteresis (prevents mouth chatter) + Rhubarb JSON support.
@@ -48,7 +50,7 @@ See **[Rule.md](Rule.md)** for the complete production rulebook covering charact
 - **`flat_puppet/core/compositor.py` & `configs/scenes/*.json`** — Multi-speaker scene staging with camera push-in (`demo_courtyard`, `bansi_mango`).
 - **`flat_puppet/tools/puppet_prep.py`** — Coordinate probe grids, closed-ink flood recoloring, arm removal, and 4x supersampled eyes/mouth synthesis.
 - **`flat_puppet/tools/voice_and_subs.py`** — Hash-cached Hindi neural TTS (`edge-tts`), silence trimming, procedural SFX, WAV mixing, and ASS subtitle writer.
-- **`flat_puppet/tools/story_compiler.py`** — Multi-shot Story Script compiler, stride-matched walk solver, incremental shot cache, and lossless concat stitcher.
+- **`flat_puppet/tools/story_compiler.py`** — Multi-shot Story Script compiler (`configs/stories/mitthu_ka_hissa.json` -> `STORY-DEMO.mp4`), stride-lock solver, incremental shot cache, and lossless concat stitcher.
 - **`flat_puppet/render/engine.py`** — Multi-core `ProcessPoolExecutor` frame renderer + zero-disk-I/O FFmpeg stdin pipe streamer.
 - **`flat_puppet/utils/ffmpeg.py`** — Cross-platform FFmpeg discovery and automatic Devanagari font fallback (`Nirmala UI` on Windows).
 

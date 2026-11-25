@@ -10,7 +10,7 @@ from typing import Iterable, Optional, Sequence, Tuple
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-BAKE_VERSION = 8
+BAKE_VERSION = 9
 
 
 def remove_white(img: Image.Image) -> Image.Image:
@@ -208,17 +208,6 @@ def split_limb_at_joint(
     cap = limb_img.copy()
     cap.putalpha(Image.fromarray((base_alpha * np.asarray(cap_mask).astype(np.int32) // 255).astype(np.uint8)))
     return upper, lower, cap
-
-
-def split_leg_with_knee(
-    leg_img: Image.Image,
-    knee_pivot: Tuple[float, float],
-    overlap: int = 16,
-    feather: float = 3.0,
-) -> Tuple[Image.Image, Image.Image]:
-    """Backwards-compatible wrapper returning (thigh, calf) from split_limb_at_joint."""
-    thigh, calf, _ = split_limb_at_joint(leg_img, knee_pivot, overlap=overlap, feather=feather)
-    return thigh, calf
 
 
 def patch(

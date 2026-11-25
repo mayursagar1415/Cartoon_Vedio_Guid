@@ -6,7 +6,7 @@
 
 ## 1. The Golden Architecture Rule (Why Cutout-Torso Beats Robotic Rigging)
 
-Never assemble humans out of loose "numbered parts sheets" (isolated cylinder thighs/calves/forearms stacked end-to-end with circular dots) or floating geometric capsules. We tested both in this project (`Option 2 capsule` and `Ramu parts sheet`) — segmented floating shapes always read as **robotic**.
+Never assemble humans out of loose "numbered parts sheets" (isolated cylinder thighs/calves/forearms stacked end-to-end with circular dots) or floating geometric capsules — segmented floating shapes always read as **robotic**.
 
 Instead, follow the **AutoDraft Studio Cutout Architecture**:
 
@@ -159,7 +159,13 @@ Inside `flat_puppet/tools/story_compiler.py`, the compiler automatically runs th
 | [flat_puppet/core/puppet.py](flat_puppet/core/puppet.py) | Generalized multi-character baking & scaled asset loader |
 | [flat_puppet/core/compositor.py](flat_puppet/core/compositor.py) | Multi-speaker compositor, 2-bone IK arm, Option 4 walk dispatch, camera push-in |
 | [flat_puppet/core/leg_modes.py](flat_puppet/core/leg_modes.py) | Option 4 (`sprite8`) 8-pose studio walk & `render_leg_vector()` |
+| [flat_puppet/core/kinematics.py](flat_puppet/core/kinematics.py) | Analytical 2-bone IK (`solve_2bone_ik`), `turn_transition_scale`, `procedural_blinks`, breathing |
+| [flat_puppet/core/actions.py](flat_puppet/core/actions.py) | Keyframed Action Library (`walk_cycle.json`, `speak_gesture.json`) with smooth easing curves |
+| [flat_puppet/core/config.py](flat_puppet/core/config.py) | Strict scene JSON & ASS subtitle timing validation |
 | [flat_puppet/core/audio.py](flat_puppet/core/audio.py) | Per-speaker smoothed RMS lip-sync envelope & hysteresis |
+| [flat_puppet/core/image_ops.py](flat_puppet/core/image_ops.py) | Border flood-fill keying, `split_limb_at_joint`, `rot_safe`, `AssetBaker` |
+| [flat_puppet/render/engine.py](flat_puppet/render/engine.py) | Multi-core `ProcessPoolExecutor` frame renderer & FFmpeg pipe encoder |
+| [flat_puppet/utils/ffmpeg.py](flat_puppet/utils/ffmpeg.py) | Cross-platform FFmpeg lookup & Windows Devanagari font fallback (`Nirmala UI`) |
 
 ### Speed & Budget Estimate for a 30-Minute Video
 - **30 minutes @ 25 fps** = `45,000` frames (~`160–180` shots of `10–12s` each).

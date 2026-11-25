@@ -7,7 +7,6 @@ test6-*.png
 FLAT-DEMO.mp4
 STORY-DEMO.mp4
 STORY-OUT.mp4
-samples/
 s4.wav
 .pytest_cache/
 *.egg-info/
